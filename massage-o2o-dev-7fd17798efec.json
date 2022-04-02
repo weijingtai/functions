@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "massage-o2o-dev",
+  "private_key_id": "7fd17798efec4d02ab6679f69ba8af197b19e26a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCbwwv7CIrxtmYK\nPB4vVU0hz8Y1jQu2JDJmSftLYxsL8W+/TdTJp8kpaDgl/RAHVjZRVfdnYp1yZNFM\nBrho23l+/jt+cX4uBWPDqBAVI7+i5+D856kmhbU55Irx8cBEA2ZQOLSoGZgwr0sI\nCUKwdz4NYzjheP4Cvju7eEwfW614khyjRgxbP9SJw8yIgxWfUg6SCaGkCEDkRrA5\n+6SI8vR9+GyYkmtk53qMeFlzB4uIrtPzu8HVm+dODsQvLBs/yIkpTvcFTa/DxASu\nSpUUW/zS5QlTv39Zlpn7weXuu68de/5VEnP44D1Vik+8mPq6n7P091pDVo53iExs\nffo0g1B1AgMBAAECggEAIykLeIqEYM05afiJoMoq2+XMupRg7yfrF5N+LhWMSq0g\nukidrrqZCmeL+ylNl7ZikwgqjZQhcevnofeHY6YdXikR8Xg5kTZmv4kdvkPgU6vv\nqe86S+eVUeDw624UplW1IAk44JRMejrrn0AF5ZM5Nujts1nuTty125rrZg26EhPh\nQHwpOc8oX/q1pDg7HDqsW4VV8awEmRT7CHNr1fobb/fJEfGcPHIvQIwNH6urhqhj\n8RYALR7mqR+TDav9mmzt16BPA0kA5Z6aCKj7CIdl2UMVMYsLEhIYnkFFBXElLJxj\n8VOMKGspahvh3TYAvc/dLBwLlP29t27pT1oyrde4yQKBgQDN75FKKWttGkqlW2iG\nLTC/05UD5wpTGlEfXDaL5VMJtuXuUr3b4WOEQD6qGExW8YLvDeYpkufh3nuxsrUb\n6TFHXX7bcKTW28BcT3zKuZK7IMcgSsfCp3mTtaHRfq6qWJo3VPnoZXCkgWwD4BJT\nakTloU/rxpMp/AgFn05nk4rmrQKBgQDBoObdXz5KxJsq3zfKbv9VNDFWItAXy0pT\ngELM81kVCdsCfBGHv1Aa/PglKQtvURFQAmajLpbvnCffF3GxcE4QA6BWAhFQ/U7A\nsRZGre1lJDhjGXsaYGgj+bxvZUwoI7tQBwfnHREgGSvre1h7O829NWov8Yz/B/pH\nSkWj0flx6QKBgFr/VCUAHm8MYhWlSY+YomTxOnSJ//7urw/7cELq54FwZzOjLi/d\n7VqABPCmYf09JM07SAvw1TPyWpgPzoVxyoutXaPbp4sleV+Q5CS0UYkMl9DGGnUC\nCe/iH4nxv36YPjTbAL7XLCoU4kToG1DusVkCqc0WZurzahwJ49xSztrVAoGATSFF\nFYWtEKeEj+1fEfppJ42k4YT4k6HdN6nt8io1oBXO8gxuBz8EL9v5FQRmk68dUFvE\nethCM6xmjY2PMnlj/ykSo3ArabGdv1BLaVg7KoDlHUS3LuicU0hV8aHOVmb1ZImI\ncl23xquAPUtjEaPe7rHqXLLB0Y1h+yfw2bL4xJECgYEAxfAMCet+eUSTmPWezkc+\nujWvzfBwsnMnAP4kgfYv+fR65XdgH7zmxilBvdaXt6m34442uGcBCoRjfauhO2O6\nCh0BnxYCE8ST3DlXUl0cFuUnjXPM0uYm4+/O0WQFqirCfBDaGubcEJihwW2y5phW\nUN74gkeR7F7FyY45FObJKd8=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-bipvg@massage-o2o-dev.iam.gserviceaccount.com",
+  "client_id": "101154569207974292322",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-bipvg%40massage-o2o-dev.iam.gserviceaccount.com"
+}
