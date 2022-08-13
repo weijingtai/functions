@@ -1,7 +1,7 @@
 const {
     OrderStateEnum,
-    AssignStateEnum
 } = require("./enums.js")
+const {AssignStateEnum} = require("./assign.enum.js")
 
 var HostBaseInfo = require("./HostBaseInfo")
 module.exports = class OrderAssignNotification{
@@ -11,7 +11,7 @@ module.exports = class OrderAssignNotification{
     assignGuid,
     masterUid,
     assignState,
-    orderState,
+    orderStatus,
     totalServiceMinutes,
     totalServiceNumber,
     assignTimeoutSeconds,
@@ -23,7 +23,7 @@ module.exports = class OrderAssignNotification{
       this.assignGuid = assignGuid
       this.masterUid = masterUid
       this.assignState = assignState
-      this.orderState = orderState
+      this.orderStatus = orderStatus
       this.totalServiceMinutes = totalServiceMinutes
       this.totalServiceNumber = totalServiceNumber
       this.assignTimeoutSeconds = assignTimeoutSeconds
@@ -38,7 +38,7 @@ module.exports = class OrderAssignNotification{
         json.assignGuid,
         json.masterUid,
         AssignStateEnum.get(json.assignState),
-        OrderStateEnum.get(json.orderState),
+        OrderStateEnum.get(json.orderStatus),
         json.totalServiceMinutes,
         json.totalServiceNumber,
         json.assignTimeoutSeconds,

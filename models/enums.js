@@ -9,17 +9,9 @@ const OrderStateEnum = new Enum({
   'canceled':4,
   'completed':5
 },{freeze:true,ignoreCase: true})
-const AssignStateEnum = new Enum({
-  Preparing:0,
-  Assigning:1,
-  Canceled:2,
-  Rejected:3,
-  Accepted:4,
-  Timeout:4,
-},{freeze:true,ignoreCase:true})
+
 
 
 module.exports = {
     OrderStateEnum: OrderStateEnum,
-    AssignStateEnum: AssignStateEnum,
 }

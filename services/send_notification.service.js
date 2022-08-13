@@ -27,6 +27,7 @@ async function send(device,package){
     functions.logger.info(`send: with notification type: ${notifyType}`);
     switch(notifyType){
         case 'assign':
+        case 'assign/cancel':
             return await sendAssignOrder(device,package)
             // break;
         default:

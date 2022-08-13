@@ -1,4 +1,12 @@
 const functions = require("firebase-functions");
+// const {logger} = require("firebase-functions");
+const {onRequest} = require('firebase-functions/v2/https');
+const express = require('express');
+const app = express();
+exports.api = onRequest(app);
+
+// const express = require('express');
+// const app = express();
 // const admin = require('firebase-admin');
 // var serviceAccount = require("./massage-o2o-dev-7fd17798efec.json");
 // admin.initializeApp({
@@ -19,11 +27,56 @@ const userCollection = admin.firestore().collection("Users")
 const FriendsCollections = admin.firestore().collection("FriendsList")
 const SubscribeListCollections = admin.firestore().collection("Subscribe");
 const OnlineInfoCollections = admin.firestore().collection("OnlineInfo")
+const ActivatedOrderCollection = admin.firestore().collection("ActivatedOrder")
+const ServiceCollection = admin.firestore().collection("Service")
+const AssignConllection = admin.firestore().collection("Assign")
 const onlineRef = admin.database().ref("notification/onlineState");
 const UserSearchCollection = admin.firestore().collection("UserSearch")
-exports.helloworld = functions.https.onRequest((req,resp)=>{
+const {v4: uuidv4} = require('uuid');
+// exports.app = functions.https.onRequest(app);
+app.get("/",async (req,res)=>{
+  functions.logger.info("recevie a request");
+  // await admin.firestore().collection("test").doc("test2").set({value:"123",createdAt:new Date()});
+
+  // var minutesAgo= new Date();
+  // minutesAgo.getMinutes = minutesAgo.getMinutes - 10;
+  // var result = await admin.firestore().collection("test").where("modifiedAt",">",minutesAgo.toISOString()).get();
+  // res.send(result.docs.map(doc=>doc.data()));
+
+  // load order by info
+  // var docSnapshot = await admin.firestore()
+  // .collection("ActivatedOrder")
+  // .doc("okCYOAw0O7vxVlGK9o7zZ8znqcf4")
+  // .collection("activated")
+  // .doc("2103c27d-0559-4eda-abcb-a843789b7a83").get();
+  // if (docSnapshot.exists){
+  //   res.send(docSnapshot.data());
+  // }else{
+  //   res.send("not found");
+  // }
+  var querySnapshot = await admin.firestore()
+  .collectionGroup('activated')
+  .where("guid", "==","2103c27d-0559-4eda-abcb-a843789b7a83")
+  .get();
+  // res.send(querySnapshot)
+  if (querySnapshot.docs.length > 0){
+    res.send(querySnapshot.docs);
+  }else {
+    res.send(querySnapshot.docs.length)
+  }
+
+  // if (result.doc.)
+  // functions.logger.debug("set data success");
+  // res.send("Express is working");
+});
+exports.helloworld = onRequest(async(req,resp) =>{
   console.log("hello world !!")
-  resp.send("hello world !!!")
+  var createdAtDate = new Date();
+  createdAtDate.setDate(createdAtDate.getDate() - 1)
+  await admin.firestore().collection("test").doc("test1").set({value:"123",createdAt:new Date(),modifiedAt:new Date().toISOString()});
+  await admin.firestore().collection("test").doc("test2").set({value:"321",createdAt:createdAtDate,modifiedAt:createdAtDate.toISOString()});
+  resp.send("OK");
+
 })
 exports.loadOnlineInfo = functions.https.onRequest((req,resp)=>{
   functions.logger.info(`loadOnlineInfo request uid:${req.query.uid}`);
@@ -119,7 +172,7 @@ exports.addMaster = functions.https.onRequest((req, resp) => {
           username: user["username"],
           alphabetName: user["namePinyin"],
           // photoURL: gsImageUrl,
-          photoGSPath: gsPath,
+          // photoGSPath: gsPath,
           displayName: user["displayName"],
           phoneNumber:user["phoneNumber"],
           age: user["age"]}),
@@ -393,7 +446,8 @@ exports.notify = functions.https.onRequest((req,resp)=>{
       "https://firebasestorage.googleapis.com/v0/b/wjt-home.appspot.com/o/headProfile%2Fkongli_1.jpg?alt=media&token=8049393f-1d71-4e49-8977-5487725e78d9",
       "孔礼",
       "F",
-      "MASTER")
+      "MASTER"),
+      new Date()
   ))
   .then(res=>{
     functions.logger.info(`${JSON.stringify(res)}`, {structuredData: true})
@@ -410,7 +464,7 @@ exports.notify = functions.https.onRequest((req,resp)=>{
 
 const femaleEmoji = "🙋‍♀️";
 const maleEmoji = "🙋‍♂️";
-const friendEmoji = "👥";
+const frienduEmoji = "👥";
 const partyPopperEmoji = "🎉";
 const hostEmoji = "🏠";
 class UserBaseInfo{
@@ -435,10 +489,11 @@ class DeviceNotificationToken{
   }
 }
 class SubscribNotificationData{
-  constructor(isFollowBack,deviceTokenList,subscriber){
+  constructor(isFollowBack,deviceTokenList,subscriber,subscribedAt){
     this.isFollowBack = isFollowBack
     this.deviceTokenList = deviceTokenList
     this.subscriber = subscriber
+    this.subscribedAt = subscribeAt
   }
 }
 function sendSubscribeNotification(subscribData){
@@ -481,11 +536,14 @@ function sendSubscribeNotification(subscribData){
       "image": subscribData.subscriber.photoURL,
     },
     data:{
-      "type": "subscribe",
-      "senderURL": subscribData.subscriber.photoURL,
-      "senderUid": subscribData.subscriber.uid,
-      "senderDisplayName": subscribData.subscriber.displayName,
-      "senderRole": subscribData.subscriber.role
+      body: alertBody,
+      title: `${friendEmoji} 关注提醒`,
+      type: "subscribe",
+      senderURL: subscribData.subscriber.photoURL,
+      senderUid: subscribData.subscriber.uid,
+      senderDisplayName: subscribData.subscriber.displayName,
+      senderRole: subscribData.subscriber.role,
+      subscribedAt: subscribData.subscribedAt.toISOString()
     }
   }
   if (subscribData.subscriber.gender){
@@ -789,61 +847,149 @@ exports.onSubscribeCreated = functions.firestore
       functions.logger.warn(`Trigger_onSubscribeCreated: failed: ${reason}`)
     })
 })
-exports.onSubscribeWrited = functions.firestore
-  .document('Friends/ok')
-  .onWrite((change,context)=>{
-    functions.logger.info(`Trigger onWrite: UserGUID:"${context.params.userGUID}".`, {structuredData: true});
-})
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// send order assign to master user
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+exports.onServiceAssignChanged = functions.firestore.document("Service/{hostUid}/{orderGuid}/{serviceGuid}")
+  .onUpdate((change,context)=>{
+    const newValue = change.after.data();
+    const previousValue = change.before.data();
 
 
-
-
+    const orderGuid = context.params["orderGuid"]
+    const hostUid = context.params["hostUid"]
+    const serviceGuid = context.params["serviceGuid"]
+    // Handle Delivering check this update is "Send Assign To Master User"
+    if (previousValue.assign != null && newValue.assign != null){
+      if (previousValue.assign.assignAt == null 
+        && newValue.assign.assignAt != null
+        && newValue.assign.state == "Delivering"){
+          // get order by orderGuid
+          functions.logger.debug(`get order by OrderGuid`);
+          Promise.all([
+            userCollection.doc(hostUid).get(),
+            ActivatedOrderCollection.doc(hostUid).collection("activated").doc(orderGuid).get()
+          ]).then(res=>{
+            let hostUser = res[0]
+            let activatedOrderSnap = res[1]
+            if (hostUser == null || !hostUser.exists){
+              functions.logger.warn(`host user not found.`);
+            }else if (activatedOrderSnap == null || !activatedOrderSnap.exists){
+              functions.logger.warn(`activated order not found.`);
+            }else{
+              if (activatedOrderSnap.exists){
+                let activatedOrder = activatedOrderSnap.data()
+              functions.logger.debug(`get order by ActivatedOrder/<hostUid>/activated/<orderGuid>`);
+              const masterUid = newValue.assign.masterUid
+                  const assignGuid = newValue.assign.guid
+                  functions.logger.info(`/${orderGuid}/${serviceGuid} send assign to ${masterUid} with assignGuid:${assignGuid}.`)
+                  // create OrderAssignNotification by Order
+                  var orderAssignNotification = new OrderAssignNotification(
+                    orderGuid,
+                    serviceGuid,
+                    assignGuid,
+                    masterUid,
+                    newValue.assign.state,
+                    activatedOrder.status,
+                    activatedOrder.totalServiceMinutes,
+                    activatedOrder.totalCustomers,
+                    newValue.assign.assignTimeoutSeconds,
+                    newValue.assign.assignAt,
+                    newValue.assign.createdAt,
+                    HostBaseInfo.fromJson(hostUser.data()),
+                  )
+                  functions.logger.debug(`send assign to master user ${JSON.stringify(orderAssignNotification)}.`);
+                  OrderAssignNotificationHandler.NewOrderAssignNotificationAdded(orderAssignNotification);
+            }else{
+              functions.logger.warn(`ActivatedOrder/<hostUid>/activated/${orderGuid} not found.`);
+            }
+            }
+          });
+    }else if (previousValue.assign.assignAt != null 
+        && newValue.assign.assignAt == null
+        && newValue.assign.state == "Canceled") {
+          // Handle HostUser Canceled this assign
+          functions.logger.info(`user cancel assign.`)
+           OrderAssignNotificationHandler.CancelOrderAssignNotification({
+             masterUid: newValue.assign.masterUid,
+             assignGuid: newValue.assign.guid
+            })
+    }else if (previousValue.assign.state == "Delivering" 
+    || previousValue.assign.state == "Assigning" 
+    && newValue.assign.state == "Accepted"){
+      functions.logger.info(`user accept assign.`);
+      functions.logger.debug(`set this service's masterUid to accepted masterUid.`);
+      change.after.ref.update({
+        "masterUid": newValue.assign.masterUid,
+      });
+    }
+  }
+});
+exports.orderDelivered = functions.https.onRequest((req,resp)=>{
+  const serviceGuid = req.body.serviceGuid;
+  const assignGuid = req.body.assignGuid;
+  const hostUid = req.body.hostUid;
+  const orderGuid = req.body.orderGuid;
+  functions.logger.info(`orderDelivered: for ${assignGuid}`, {structuredData: true});
+  functions.logger.debug(`orderDelivered: for /${hostUid}/${orderGuid}/${serviceGuid}/${assignGuid}`);
+  ServiceCollection.doc(hostUid).collection(orderGuid).doc(serviceGuid).get().then((snap)=>{
+    if (snap.exists){
+      // check if assign's guid is same as request's assignGuid
+      // and state is "Delivering"
+      // update assignState to "Assiging" and deliveredAt to current time
+      if (snap.data().assign.guid == assignGuid){
+        const assignState = snap.data().assign.state;
+        if (assignState == "Delivering"){
+          snap.ref.update({
+            "assign.state":"Assigning",
+            "assign.deliveredAt":new Date().toISOString()
+          }).then(()=>{
+            functions.logger.info(`orderDelivered: update assign state to Assigning.`, {structuredData: true});
+            resp.send({
+              code: 200,
+              message: "success"
+            })
+          });
+        }else{
+          // otherwise send error with duplicate
+          functions.logger.warn(`assign state is not "Delivering"`);
+          resp.send({
+            code: 409,
+            message: "duplicate delivery assign."
+          })
+        }
+      }else{
+        functions.logger.warn(`assignGuid not match.`);
+        // otherwise, send assign not found error to client
+        resp.send({
+          code:404,
+          message:"Assign not found."
+        })
+      }
+    }else{
+      functions.logger.warn(`order not found.`);
+      resp.send({
+        code: 410,
+        message: "service not found."
+      })
+    }
+  })
+});
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // assign notification timeout
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const OrderAssignNotificationHandler = require("./handlers/order_assign_notification.handler");
 const OrderAssignNotification = require("./models/OrderAssignNotification");
-
-
-var db = admin.database();
-var ref = db.ref("OrderAssign/")
-
-ref.on("value",function(snapshot){
-  // console.log(`realtime-datanase: 'on value' new value ${snapshot.val()}`)
-  functions.logger.info(`realtime-datanase: 'on value' new value ${snapshot.exists()}`)
-  if (snapshot.exists()){
-    functions.logger.info(`realtime-database: 'on value' snapshot: ${JSON.stringify(snapshot.val())}`)
-    // snapshot key is orderGuid
-    var orderSnapshot = Object.values(snapshot.val())[0];
-    // snapshot key is assignGuid
-    var assignSnapsho = Object.values(orderSnapshot)[0];
-    functions.logger.info(`realtime-database: 'on value' snapshot: ${JSON.stringify(assignSnapsho)}.`)
-    OrderAssignNotificationHandler.NewOrderAssignNotificationAdded(OrderAssignNotification.fromJson(assignSnapsho))
-  }else{
-    functions.logger.info(`realtime-database: 'on value' to null.`)
-  }
-})
-
-
-// ref.on("child_added",(snapshot,previousChildKey)=>{
-//     var orderGuid = snapshot.key;
-//     console.log(`realtime-database`)
-//     functions.logger.info(`realtime-database: 'child_added'.`)
-//     if (snapshot.exists()){
-//       functions.logger.info(`realtime-database: 'child_added' snapshot: ${JSON.stringify(Object.values(snapshot.val())[0])}.`)
-//       var notification = OrderAssignNotification.fromJson(Object.values(snapshot.val())[0]);
-//       functions.logger.debug(`notification assign order: ${JSON.stringify(notification)}`);
-//       OrderAssignNotificationHandler.NewOrderAssignNotificationAdded(notification)
-//     }
-//   functions.logger.info(`realtime-datanase: 'OrderAssign/' new ${JSON.stringify(snapshot)}`)
-// })
+const HostBaseInfo = require("./models/HostBaseInfo");
+const { logger } = require("firebase-tools");
+const { service } = require("firebase-functions/v1/analytics");
 
 
 //TODO: dev only
 exports.assign = functions.https.onRequest(async (req,resp)=>{
   // var masterUid = req.query.device == "android"
-  masterUid=req.query.uid
+  let masterUid=req.query.uid
   var testJsonData = {
     "orderGuid":"6fd64c43-41f5-4654-958b-f31e5f31f1b3",
     "serviceGuid":"b53d8d81-91f6-4d35-a075-7f68702304ef",
@@ -869,3 +1015,285 @@ exports.assign = functions.https.onRequest(async (req,resp)=>{
       resp.send(e)
     }
 })
+
+exports.cancelAssignNotification = functions.https.onRequest(async (req,resp)=>{
+  // var masterUid = req.query.device == "android"
+
+  // let masterUid = req.query.uid
+  // let serviceGuid = req.query.serviceGuid
+  // let assignGuid = req.query.assignGuid
+
+
+  // let notificationID = req.query.id
+  await OrderAssignNotificationHandler.CancelOrderAssignNotification({
+    masterUid: req.query.uid,
+    assignGuid: req.query.aGuid
+  })
+
+  // await admin.messaging().send({
+  //   token: "cMj8KEtrT9uqw5qSKVhV-Y:APA91bGuQeQnEoeHUZEiDd79HRpmAAWGmFCcyiNQ3XS7uD6Ma8o_uPF593At2pvnHAEyChc_Dnffq2GTh1SDBaR4qmw-Lrg0kCKGR9_tmZhhzbvMTwHGxgeCSG3DvjstgrcUbnPQR8OW",
+  //   data: {
+  //     type: "assign/cancel",
+  //     id: notificationID,
+  //   }
+  // });
+  resp.send("ok")
+})
+
+
+///////////////////////////////////////////////////////////
+// master user accept order
+///////////////////////////////////////////////////////////
+
+const { AcceptAssignServiceEvent,AppointmentServiceEvent } = require("./models/service_event.model");
+const {AppointmentEventTypeEnum,ServiceEventTypeEnum} = require("./models/service_event.enum")
+const {ServiceStateEnum} = require("./models/service_state.enum");
+const { firebaseConfig } = require("firebase-functions");
+// const {handleMasterAcceptAssign} = require("./handlers/master_accept_assign.handler");
+exports.masterUserAccept = functions.firestore.document("Assign/{assignGuid}").onUpdate( async (change,context)=>{
+  let previous = change.before.data()
+  let current = change.after.data()
+  if (previous.state == "Assigning" || previous.state == "Delivering"){
+    if (current.state == "Accepted"){
+        await handleMasterAcceptAssignWithEventList(previous,current)
+        // await handleMasterAcceptAssign(previous,current)
+    }
+  }
+});
+exports.startServing = functions.firestore.document("Service/{serviceGuid}").onUpdate( async (change,context)=>{
+  let serviceGuid = context.params.serviceGuid;
+  // get previous and current
+  let previous = change.before.data()
+  let current = change.after.data()
+  if ([ServiceStateEnum.Waiting.key,ServiceStateEnum.CustomerArrived.key,ServiceStateEnum.Running.key].includes(previous.state)){
+    if (current.state == ServiceStateEnum.Serving.key){
+      functions.logger.info(`startServing: ${serviceGuid}, start service with masterUid:${current.masterUid}`);
+      await handleStartServing(previous,current)
+    }
+  }
+});
+async function handleStartServing(previous,current){
+  // get sevice's order guid
+  let orderGuid = current.orderGuid
+  // get order
+  var orderQuerySnapshot = await admin.firestore().collectionGroup('activated').where("guid", "==",orderGuid).get()
+  // var orderQuerySnapshot = await admin.firestore().collection("ActivatedOrder").where("guid", "==", orderGuid).get()
+  if (orderQuerySnapshot.size > 0){
+    // check order's status should not be "Canceled" or "Completed"
+    let order = orderQuerySnapshot.docs[0].data()
+    if (order.status != "Canceled" && order.status != "Completed"){
+      // check order's status is not "Serving", set it to "Serving"
+      if (order.status != "Serving"){
+        let nowStr = new Date().toISOString();
+        let querySnapshot = await admin.firestore().collectionGroup('activated').where("guid", "==",orderGuid).get()
+        // let querySnapshot = await admin.firestore().collection("Order").doc(orderGuid).get();
+        if (querySnapshot.size > 0){
+            let nowOrderRef = querySnapshot.docs[0];
+            if (nowOrderRef.exists) {
+                // console.log(`Document found with name '${documentSnapshot.id}'`);
+                await nowOrderRef.ref.update({
+                  previousStatus: order.status,
+                  status: "Serving",
+                  lastModifiedAt: nowStr,
+                  realStartAt: nowStr
+                });
+                functions.logger.debug(`handleStartService: update order with orderGuid:${orderGuid} to status:Waiting success.`);
+            }else{
+                functions.logger.warn(`handleStartService: order collectionGroup with 'activated' where orderGuid:${orderGuid} not found.`)
+            }
+        }else{
+            functions.logger.warn(`handleStartService: order collectionGroup with 'activated' where orderGuid:${orderGuid} not found.`)
+        }
+      }
+    }else{
+      functions.logger.error("handleStartService: order status is ${order.status}")
+    }
+  } else {
+    functions.logger.warn(`handleStartService: order not found by orderGuid:${orderGuid} of service:${current.guid}.`);
+    return
+  }
+};
+async function handleMasterAcceptAssignWithEventList(previous,current){
+  let orderGuid = current.orderGuid;
+  functions.logger.info(`masterUserAccept: masterUid:${current.masterUid} accept assignGuid:${current.guid}.`)
+  // get order by current.orderGuid
+  // check order is activated, not archived,
+  // if order state is activated, then update this service 
+  var querySnapshot = await admin.firestore().collectionGroup("activated").where("guid", "==",orderGuid).get();
+  if (querySnapshot.size > 0){
+    functions.logger.info(`masterUserAccept: ${orderGuid} ${querySnapshot.docs[0]}`)
+    var order = querySnapshot.docs[0].data();
+    var currentOrderStatus = order.status;
+    var currentTotalService = order.totalServices;
+    if (currentOrderStatus != "Canceled" && currentOrderStatus != "Completed" && currentOrderStatus != "None"){
+      // get service by current.serviceGuid
+      // and check service's assign guid is current.guid
+      // if yes, then update this service
+      var serviceDoc = await ServiceCollection.doc(current.serviceGuid).get();
+      if (serviceDoc.exists){
+        var service = serviceDoc.data();
+          var serviceAssignGuid = service.assignGuid;
+          if (serviceAssignGuid != null && serviceAssignGuid == current.guid && serviceDoc.data().state == "Assigning"){
+            functions.logger.debug(`masterUserAccept: update service with serviceGuid:${current.serviceGuid} to state:waiting and set masterUid.`)
+
+            var assignServiceEvent = new AcceptAssignServiceEvent(
+              uuidv4(),
+              service.guid,
+              current.masterUid,
+              current.masterUid,
+              new Date(),
+              current.guid,
+            )
+
+            functions.logger.info(assignServiceEvent.toJson());
+            await ServiceCollection
+            .doc(current.serviceGuid)
+            .collection("assigns")
+            .doc(assignServiceEvent.guid)
+            .set(assignServiceEvent.toJson());
+            var now = new Date();
+            var appointmentServiceEvent = new AppointmentServiceEvent(
+              uuidv4(),
+              service.guid,
+              current.masterUid,
+              current.masterUid,
+              now,
+              AppointmentEventTypeEnum.Init,
+              new Date(order.appointmentStartAt),
+              order.totalMinutes 
+            )
+            functions.logger.info(JSON.stringify(appointmentServiceEvent));
+            await serviceDoc.ref.update({
+                state: ServiceStateEnum.Waiting.key,
+                assignedMasterUid: current.masterUid,
+                totalServiceMinutes: order.totalMinutes,
+                lastModifiedAt: now.toISOString(),
+                appointmentStartAt: order.appointmentStartAt,
+                baseServiceEventList: admin.firestore.FieldValue.arrayUnion(appointmentServiceEvent.toJson())
+            })
+            functions.logger.debug(`masterUserAccept: query all service by order, and check if all service are accepted. if so, update order with orderGuid:${orderGuid} to state:accepted.`)
+            if (currentOrderStatus == "Assigning" || currentOrderStatus == "Creating"){
+                var snapshot = await ServiceCollection.where("orderGuid", "==", orderGuid).where("state","==","Waiting").get()
+                // check snapshot is not empty
+                if (currentTotalService == snapshot.size){
+                    functions.logger.debug(`masterUserAccept: all service are accepted, update order with orderGuid:${orderGuid} to state:accepted.`)
+                    var querySnapshot = await admin.firestore().collectionGroup('activated').where("guid", "==",orderGuid).get();
+                    // get first documentSnapshot
+                    if (querySnapshot.size > 0){
+                        let order = querySnapshot.docs[0];
+                        if (order.exists) {
+                            // console.log(`Document found with name '${documentSnapshot.id}'`);
+                            await order.ref.update({
+                                status: "Waiting",
+                                previousStatus: "Assigning",
+                                lastModifiedAt: new Date().toISOString()
+                            });
+                            functions.logger.debug(`masterUserAccept: update order with orderGuid:${orderGuid} to status:Waiting success.`);
+                        }else{
+                            functions.logger.warn(`masterUserAccept: order collectionGroup with 'activated' where orderGuid:${orderGuid} not found.`)
+                        }
+                    }else{
+                        functions.logger.warn(`masterUserAccept: order collectionGroup with 'activated' where orderGuid:${orderGuid} not found.`)
+                    }
+                }else{
+                    functions.logger.debug(`masterUserAccept: not all service are accepted (${snapshot.size}/${currentTotalService}), do nothing.`)
+                }
+            }
+          }else{
+            functions.logger.debug(`masterUserAccept: service assignGuid:${serviceAssignGuid} is not current.guid:${current.guid}.`)
+          }
+      }else{
+          functions.logger.debug(`masterUserAccept: service serviceGuid:${current.serviceGuid} not exist.`)
+      }
+    }else{
+        functions.logger.warn(`masterUserAccept: order is ${order.status}, can't accept.`)
+    }
+  }else{
+    functions.logger.debug(`masterUserAccept: order not found by orderGuid:${orderGuid}.`)
+  }
+      
+}
+
+async function handleMasterAcceptAssign(previous,current){
+    let orderGuid = current.orderGuid;
+    functions.logger.info(`masterUserAccept: masterUid:${current.masterUid} accept assignGuid:${current.guid}.`)
+    // get order by current.orderGuid
+    // check order is activated, not archived,
+    // if order state is activated, then update this service 
+    var querySnapshot = await admin.firestore().collectionGroup("activated").where("guid", "==",orderGuid).get();
+    if (querySnapshot.size > 0){
+      functions.logger.info(`masterUserAccept: ${orderGuid} ${querySnapshot.docs[0]}`)
+      var order = querySnapshot.docs[0].data();
+      var currentOrderStatus = order.status;
+      var currentTotalService = order.totalServices;
+      if (currentOrderStatus != "Canceled" && currentOrderStatus != "Completed" && currentOrderStatus != "None"){
+        // get service by current.serviceGuid
+        // and check service's assign guid is current.guid
+        // if yes, then update this service
+        var serviceDoc = await ServiceCollection.doc(current.serviceGuid).get();
+        if (serviceDoc.exists){
+            var serviceAssignGuid = serviceDoc.data().assignGuid;
+            if (serviceAssignGuid != null && serviceAssignGuid == current.guid && serviceDoc.data().state == "Assigning"){
+              functions.logger.debug(`masterUserAccept: update service with serviceGuid:${current.serviceGuid} to state:waiting and set masterUid.`)
+
+              await serviceDoc.ref.update({
+                  state: "Waiting",
+                  masterUid: current.masterUid,
+                  totalServiceMinutes: order.totalMinutes,
+                  lastModifiedAt: new Date().toISOString(),
+                  appointmentStartAt: order.appointmentStartAt,
+              })
+              functions.logger.debug(`masterUserAccept: query all service by order, and check if all service are accepted. if so, update order with orderGuid:${orderGuid} to state:accepted.`)
+              if (currentOrderStatus == "Assigning" || currentOrderStatus == "Creating"){
+                  var snapshot = await ServiceCollection.where("orderGuid", "==", orderGuid).where("state","==","Waiting").get()
+                  // check snapshot is not empty
+                  if (currentTotalService == snapshot.size){
+                      functions.logger.debug(`masterUserAccept: all service are accepted, update order with orderGuid:${orderGuid} to state:accepted.`)
+                      var querySnapshot = await admin.firestore().collectionGroup('activated').where("guid", "==",orderGuid).get();
+                      // get first documentSnapshot
+                      if (querySnapshot.size > 0){
+                          let order = querySnapshot.docs[0];
+                          if (order.exists) {
+                              // console.log(`Document found with name '${documentSnapshot.id}'`);
+                              await order.ref.update({
+                                  status: "Waiting",
+                                  previousStatus: "Assigning",
+                                  lastModifiedAt: new Date().toISOString()
+                              });
+                              functions.logger.debug(`masterUserAccept: update order with orderGuid:${orderGuid} to status:Waiting success.`);
+                          }else{
+                              functions.logger.warn(`masterUserAccept: order collectionGroup with 'activated' where orderGuid:${orderGuid} not found.`)
+                          }
+                      }else{
+                          functions.logger.warn(`masterUserAccept: order collectionGroup with 'activated' where orderGuid:${orderGuid} not found.`)
+                      }
+                  }else{
+                      functions.logger.debug(`masterUserAccept: not all service are accepted (${snapshot.size}/${currentTotalService}), do nothing.`)
+                  }
+              }
+            }else{
+              functions.logger.debug(`masterUserAccept: service assignGuid:${serviceAssignGuid} is not current.guid:${current.guid}.`)
+            }
+        }else{
+            functions.logger.debug(`masterUserAccept: service serviceGuid:${current.serviceGuid} not exist.`)
+        }
+      }else{
+          functions.logger.warn(`masterUserAccept: order is ${order.status}, can't accept.`)
+      }
+    }else{
+      functions.logger.debug(`masterUserAccept: order not found by orderGuid:${orderGuid}.`)
+    }
+        
+}
+
+
+///////////////////////////////////////////////////////////
+// messages
+///////////////////////////////////////////////////////////
+exports.messageSend = functions.firestore.document("ChatRooms/{roomId}/messages/{msgId}").onCreate( async (snapshot,context)=>{
+    functions.logger.info("message send, ")
+    await snapshot.ref.update({
+      showStatus: true,
+      status: "sending"
+    });
+});
