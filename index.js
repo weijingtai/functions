@@ -17,7 +17,12 @@ const app = express();
 
 
 const {TestCollection} = require('./database/firebase.database');
-
+app.get("/", async (req, res)  =>{
+  res.send({
+      code: 200,
+      message: "Hello World"
+  });
+});
 // build multiple CRUD interfaces:
 // Add user routes
 app.get("/user/:id", async (req, res)  =>{
@@ -438,10 +443,13 @@ exports.serviceStateTrigger = firestore
 
 
 const masterStateSketchHandler = require('./handlers/master_state_sketch.handler');
+const {MasterStateSketchServiceModel} = require('./models/master_state_sketch.model');
 app.post("/master/sketch/:masterUid/",async (req,res)=>{
   // get params from request
+  logger.info(`[api] master state sketch handled`, {structuredData: true});
 
-  let result = await masterStateSketchHandler.add(req.params.masterUid, req.body);
+  
+  let result = await masterStateSketchHandler.add(req.params.masterUid, MasterStateSketchServiceModel.fromJson(req.body));
   
   if (result != null){
     if (result){
@@ -460,6 +468,54 @@ app.post("/master/sketch/:masterUid/",async (req,res)=>{
     res.send({
       code: 404,
       msg: "service not found.",
+    });
+  }
+});
+app.put("/master/sketch/:masterUid/",async (req,res)=>{
+  // get params from request
+  logger.info(`[api] update master state sketch handled`, {structuredData: true});
+  let masterUid = req.params.masterUid;
+  // get updatedFileds from request
+  let updatedFields = req.body;
+  // get master state sketch guid updatedFields and remove key from updatedFields
+  let guid = updatedFields.guid;
+  delete updatedFields.guid;
+  let result = await masterStateSketchHandler.update(masterUid, guid, updatedFields);
+  logger.info(`[api] update master state sketch handled`, {structuredData: true});
+  logger.debug(`[api] ${JSON.stringify(result)}`, {structuredData: true});
+  if (result != null){
+      res.send({
+        code: 200,
+        data: result.toJson(),
+      });
+  }else{
+    res.send({
+      code: 400,
+      msg: "event not handled.",
+    });
+  }
+});
+app.delete("/master/sketch/:masterUid/",async (req,res)=>{
+  // get params from request
+  logger.info(`[api] update master state sketch handled`, {structuredData: true});
+  let masterUid = req.params.masterUid;
+  // get updatedFileds from request
+  let updatedFields = req.body;
+  // get master state sketch guid updatedFields and remove key from updatedFields
+  let guid = updatedFields.guid;
+  delete updatedFields.guid;
+  let result = await masterStateSketchHandler.remove(masterUid, guid);
+  logger.info(`[api] update master state sketch handled`, {structuredData: true});
+  logger.debug(`[api] ${JSON.stringify(result)}`, {structuredData: true});
+  if (result != null){
+      res.send({
+        code: 200,
+        data: result.toJson(),
+      });
+  }else{
+    res.send({
+      code: 400,
+      msg: "event not handled.",
     });
   }
 });

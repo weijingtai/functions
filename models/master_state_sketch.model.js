@@ -22,7 +22,7 @@ class MasterStateSketchServiceModel{
         canceledAt,
         createdAt,
     ){
-        this.type = MasterStateSketch.Service;
+        this.type = MasterStateSketchEnum.Service;
         this.guid = guid;
         this.serviceGuid = serviceGuid;
         this.state = state;
@@ -64,7 +64,7 @@ class MasterStateSketchServiceModel{
     }
 
     static fromJson(json){
-        return new MasterServiceStateSketchModel(
+        return new MasterStateSketchServiceModel(
             json.guid,
             json.serviceGuid,
             ServiceStateEnum[json.state],
@@ -73,7 +73,7 @@ class MasterStateSketchServiceModel{
             json.startedAt == null?null:new Date(json.startedAt),
             json.assertCompletedAt == null?null:new Date(json.assertCompletedAt),
             json.totalServiceMinutes,
-            json.lastModifiedAt == null?null:json.lastModifiedAt,
+            json.previousTotalServiceMinutes == null?null:json.previousTotalServiceMinutes,
             json.hostUid,
             json.lastModifiedAt == null?null:new Date(json.lastModifiedAt),
             json.canceledAt == null?null:new Date(json.canceledAt),
@@ -85,7 +85,7 @@ class MasterStateSketchServiceModel{
 class MasterStateSketchDisableModel{
     constructor(guid,createdAt,startAt, endAt,previousEndAt,canceledAt,lastModifiedAt){
 
-        this.type = MasterStateSketch.Disable;
+        this.type = MasterStateSketchEnum.Disable;
         this.guid = guid;
         this.createdAt = createdAt;
         this.startAt = startAt;
@@ -114,7 +114,7 @@ class MasterStateSketchDisableModel{
         return result;
     }
     static fromJson(json){
-        return new MasterStopAccepSketchModel(
+        return new MasterStateSketchDisableModel(
             
             json.guid,
             json.createdAt == null?null:new Date(json.createdAt),

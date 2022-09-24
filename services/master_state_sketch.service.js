@@ -14,12 +14,20 @@ const length = async function(uid) {
 }
 
 const add = async function(uid, newMasterStateSketch){
-    await MasterStateSketchRepository.add(uid, newMasterStateSketch);
+    return await MasterStateSketchRepository.add(uid, newMasterStateSketch);
+}
 
+const update = async function(uid,guid, updatedFields){
+    return await MasterStateSketchRepository.update(uid,guid, updatedFields);
+}
+const remove = async function(uid,guid,){
+    return await MasterStateSketchRepository.remove(uid,guid);
 }
 
 module.exports = {
     listAll,
     length,
-    add
+    add,
+    update,
+    remove
 }
