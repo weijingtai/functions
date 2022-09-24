@@ -1,15 +1,17 @@
 
 const functions = require('firebase-functions');
-const admin = require("../database/firebase.database")();
+const {getAdmin} = require("../firebase.admin");
+const admin = getAdmin();
+const messaging = admin.messaging()
 const fs = require('fs');
 const http2 = require('http2');
 const apnsAddress = 'https://api.sandbox.push.apple.com'
 const basePath = '/3/device/'
 const apnsBaseHeader = {
-			    ':method': 'POST',
-			    'apns-topic': 'com.wjthub.flutter.massage.host', //you application bundle ID
-			    ':scheme': 'https',
-			    'apns-push-type': 'alert', // voip, alert
+  ':method': 'POST',
+	'apns-topic': 'com.wjthub.flutter.massage.host', //you application bundle ID
+	':scheme': 'https',
+	'apns-push-type': 'alert', // voip, alert
 }
 
 const apnsHighPriorityImageHeader = {
@@ -23,7 +25,6 @@ const apnsClient = http2.connect(apnsAddress, {
     pfx:fs.readFileSync(`${__dirname}/../MassageO2OHost_APNs_Certificates.p12`),
     passphrase: 'wjt19951215'
 });
-const messaging = admin.messaging()
 
 async function sendOrderAssign(device,package){
     functions.logger.debug(`sendOrderAssign: ${JSON.stringify(device)}`);
@@ -158,7 +159,6 @@ var doSend =async function(tokenList,priority,package){
 
 function apnsClientSend(){
   return new Promise(resolve=>{
-
   })
 }
 

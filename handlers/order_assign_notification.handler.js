@@ -7,7 +7,6 @@ const NotificationService = require("../services/send_notification.service");
 
 const NewOrderAssignNotificationAdded = async function(notification){
   functions.logger.info(`receive orderAssignNotification for order:${notification.orderGuid} assign:${notification.assignGuid} to masterUid:${notification.masterUid}`);
-
   functions.logger.debug(`get master notification token info`);
   var userNotificationBaseInfo = await _getOnlineUserNotificationBaseInfoByUid(notification.masterUid);
   functions.logger.debug(`generate notification package.`);

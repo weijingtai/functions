@@ -6,14 +6,18 @@ const ServiceStateEnum = new Enum([
     "Preparing",
     "Assigning",
     "Waiting",
+    "MasterSetSail",
     "CustomerArrived",
     "Running",
     "Serving",
     "Paused",
-    "Finished", 
+    
+    "Finished",
     "Completed",
     "Canceled",
+
     "Replaced", 
+    "Deleted"
 ],{freeze:true,ignoreCase:true});
 module.exports = {
     ServiceStateEnum: ServiceStateEnum    
