@@ -6,10 +6,10 @@ const {MasterStateSketchServiceModel,
     MasterStateSketchEnum} = require('../models/master_state_sketch.model');
 
 const listAll = async function(uid) {
-    let masterStateSketchList = await _listAllData(uid);
+    let stateSketches = await _listAllData(uid);
     let reuslt = [];
-    for (let i = 0; i < masterStateSketchList.length; i++) {
-        let masterStateSketchData = masterStateSketchList[i];
+    for (let i = 0; i < stateSketches.length; i++) {
+        let masterStateSketchData = stateSketches[i];
         if (masterStateSketchData.type == MasterStateSketchEnum.Service.toString()){
             reuslt.push(MasterStateSketchServiceModel.fromJson(masterStateSketchData));
         }else if (masterStateSketchData.type == MasterStateSketchEnum.Disable.toString()){
@@ -29,14 +29,14 @@ const _listAllData = async function(uid){
         logger.warn(`_listAllData: not found masterUid.`);
         return [];
     }
-    // let masterStateSketchList = documentSnapshot.data().masterStateSketchList;
+    // let stateSketches = documentSnapshot.data().stateSketches;
     
-    let masterStateSketchList =Object.values(documentSnapshot.data().masterStateSketchList);
-    if (masterStateSketchList == null || masterStateSketchList.length == 0) {
-        logger.info(`_listAllData: masterStateSketchList is empty.`);
+    let stateSketches =Object.values(documentSnapshot.data().stateSketches);
+    if (stateSketches == null || stateSketches.length == 0) {
+        logger.info(`_listAllData: stateSketches is empty.`);
         return [];
     }
-    return masterStateSketchList;
+    return stateSketches;
 }
 const length = async function(uid) {
     logger.debug(`length by uid: ${uid}`);
@@ -46,105 +46,74 @@ const length = async function(uid) {
         logger.warn(`length: not found masterUid.`);
         return 0;
     }
-    // let masterStateSketchList = documentSnapshot.data().masterStateSketchList;
-    let masterStateSketchList = Object.values(documentSnapshot.data().masterStateSketchList);
-    if (masterStateSketchList == null || masterStateSketchList.length == 0) {
-        logger.info(`length: masterStateSketchList is empty.`);
+    // let stateSketches = documentSnapshot.data().stateSketches;
+    let stateSketches = Object.values(documentSnapshot.data().stateSketches);
+    if (stateSketches == null || stateSketches.length == 0) {
+        logger.info(`length: stateSketches is empty.`);
         return 0;
     }
-    logger.info(`length: total ${masterStateSketchList.length} master state sketch found`);
-    return masterStateSketchList.length;
+    logger.info(`length: total ${stateSketches.length} master state sketch found`);
+    return stateSketches.length;
+}
+
+// @return MasterStateSketchServiceModel or MasterStateSketchDisableModel by "type" field
+const get = async function(uid,guid){
+    logger.info(`[repository] get: master state sketch by uid: ${uid} guid: ${guid}`);
+    let onlineInfo = await _getByUid(uid);
+    if (!onlineInfo.exists) {
+        logger.warn(`[repository] get: not found masterUid.`);
+        return null;
+    }
+    let stateSketches = onlineInfo.data().stateSketches;
+    if (stateSketches == null || stateSketches.length == 0) {
+        logger.info(`[repository] get: stateSketches is empty.`);
+        return null;
+    }
+    let masterStateSketchData = stateSketches[guid];
+    if (masterStateSketchData == null) {
+        logger.info(`[repository] get: masterStateSketchData is empty.`);
+        return null;
+    }
+    if (masterStateSketchData.type == MasterStateSketchEnum.Service.toString()){
+        logger.info(`[repository] get: masterStateSketchData is MasterStateSketchServiceModel.`);
+        return MasterStateSketchServiceModel.fromJson(masterStateSketchData);
+    } else if (masterStateSketchData.type == MasterStateSketchEnum.Disable.toString()){
+        logger.info(`[repository] get: masterStateSketchData is MasterStateSketchServiceModel.`);
+        return MasterStateSketchDisableModel.fromJson(masterStateSketchData);
+    }
+
 }
 
 const add = async function(uid, newMasterStateSketch){
     const documentReference = await _getDocumentReference(uid);
     // await documentReference.update({
-    //     masterStateSketchList: arrayUnion(newMasterStateSketch.toJson())
+    //     stateSketches: arrayUnion(newMasterStateSketch.toJson())
     // })
-    let key = `masterStateSketchList.${newMasterStateSketch.guid}`;
+    let key = `stateSketches.${newMasterStateSketch.guid}`;
     let updatedFields = {
         [key]: newMasterStateSketch.toJson()
     }
     await documentReference.update(updatedFields)
     return newMasterStateSketch;
 }
-const update = async function(uid,guid, updatedFields){
-    logger.info(`update: update master state sketch by uid: ${uid} guid: ${guid}`);
-    logger.debug(`update: updatedFields: ${JSON.stringify(updatedFields)}`);
+const update = async function(uid,updatedMasterStateSketch){
+    let guid = updatedMasterStateSketch.guid;
+    logger.info(`[repository]update: update master state sketch by uid: ${uid} guid: ${guid}`);
     let documentReference = await _getDocumentReference(uid);
-    let onlineInfoData = await documentReference.get();
-    logger.debug(`update: onlineInfoData: ${JSON.stringify(onlineInfoData.data())}`);
 
-    if (!onlineInfoData.exists) {
-        logger.warn(`update: not found masterUid.`);
-        return;
-    }
-    let onlineInfo = onlineInfoData.data();
-    if (onlineInfo.masterStateSketchList == null || onlineInfo.masterStateSketchList.length == 0) {
-        logger.warn(`update: masterStateSketchList is empty.`);
-        return;
-    }
-    // find the master state sketch by guid
-    let masterStateSketchList = onlineInfo.masterStateSketchList;
-    let key = `masterStateSketchList.${guid}`;
-    let masterStateSketch = masterStateSketchList[guid];
-    logger.debug(`update: masterStateSketch: ${JSON.stringify(masterStateSketch)}`);
-    // for (let i = 0; i < masterStateSketchList.length; i++) {
-    //     if (masterStateSketchList[i].guid == guid) {
-    //         masterStateSketch = masterStateSketchList[i];
-    //         break;
-    //     }
-    // }
-    if (masterStateSketch == null) {
-        logger.warn(`update: not found master state sketch by guid: ${guid}`);
-        return;
-    }
-    // when updatedFields contains "appointmentStartAt"
-    // add "previousAppointmentStartAt" to the updatedFields
-    if (updatedFields.appointmentStartAt != null) {
-        updatedFields.previousAppointmentStartAt = masterStateSketch.appointmentStartAt;
-    }
-    // when updatedFields contains "totalServiceMinutes"
-    // add "previousTotalServiceMinutes" to the updatedFields
-    if (updatedFields.totalServiceMinutes != null) {
-        updatedFields.previousTotalServiceMinutes = masterStateSketch.totalServiceMinutes;
-    }
+    let key = `stateSketches.${guid}`;
 
-    // check the updated fields is not equals to the original fields
-    let isUpdated = false;
-    for (let key in updatedFields) {
-        if (masterStateSketch[key] != updatedFields[key]) {
-            isUpdated = true;
-            break;
-        }
-    }
-    if (!isUpdated) {
-        logger.info(`update: no fields need to be updated`);
-        return;
-    }
-
-
-    let updatedMasterStateSketch = Object.assign(masterStateSketch, updatedFields);
-    // remove old master state sketch from masterStateSketchList
+    // remove old master state sketch from stateSketches
     await documentReference.update({
-        [key]: updatedMasterStateSketch
+        [key]: updatedMasterStateSketch.toJson()
     })
 
 
-    if (updatedMasterStateSketch.type == MasterStateSketchEnum.Service.toString()){
-        return MasterStateSketchServiceModel.fromJson(updatedMasterStateSketch);
-    } else if (updatedMasterStateSketch.type == MasterStateSketchEnum.Disable.toString()){
-        return  MasterStateSketchDisableModel.fromJson(updatedMasterStateSketch);
-    } else {
-        logger.warn(`update: unknown type: ${masterStateSketch.type}`);
-        return null;
-    }
-
-
     // update the master state sketch
-    return updatedMasterStateSketch;
+    return null;
 
 }
+
 
 const remove = async function(uid,guid){
     logger.info(`remove: master state sketch by uid: ${uid} guid: ${guid}`);
@@ -157,24 +126,24 @@ const remove = async function(uid,guid){
         return;
     }
     let onlineInfo = onlineInfoData.data();
-    if (onlineInfo.masterStateSketchList == null || onlineInfo.masterStateSketchList.length == 0) {
-        logger.warn(`remove: masterStateSketchList is empty.`);
+    if (onlineInfo.stateSketches == null || onlineInfo.stateSketches.length == 0) {
+        logger.warn(`remove: stateSketches is empty.`);
         return;
     }
     // find the master state sketch by guid
-    let masterStateSketchList = onlineInfo.masterStateSketchList;
-    let key = `masterStateSketchList.${guid}`;
-    let masterStateSketch = masterStateSketchList[guid];
+    let stateSketches = onlineInfo.stateSketches;
+    let key = `stateSketches.${guid}`;
+    let masterStateSketch = stateSketches[guid];
     if (masterStateSketch == null) {
         logger.warn(`remove: not found master state sketch by guid: ${guid}`);
         return;
     }
 
-    // remove old master state sketch from masterStateSketchList
+    // remove old master state sketch from stateSketches
     await documentReference.update({
         [key]: DeleteValue()
     })
-    // and insert new master state sketch to masterStateSketchList
+    // and insert new master state sketch to stateSketches
 
 
     if (masterStateSketch.type == MasterStateSketchEnum.Service.toString()){
@@ -196,6 +165,7 @@ async function _getByUid(uid){
 module.exports = {
     listAll,
     length,
+    get,
     add,
     update,
     remove,

@@ -18,6 +18,7 @@ const app = express();
 
 const {TestCollection} = require('./database/firebase.database');
 app.get("/", async (req, res)  =>{
+  process.env.FUNCTIONS_EMULATOR === true ? logger.info("local") : logger.info("cloud");
   res.send({
       code: 200,
       message: "Hello World"
@@ -443,13 +444,20 @@ exports.serviceStateTrigger = firestore
 
 
 const masterStateSketchHandler = require('./handlers/master_state_sketch.handler');
-const {MasterStateSketchServiceModel} = require('./models/master_state_sketch.model');
+const {MasterStateSketchServiceModel,MasterStateSketchDisableModel} = require('./models/master_state_sketch.model');
 app.post("/master/sketch/:masterUid/",async (req,res)=>{
   // get params from request
   logger.info(`[api] master state sketch handled`, {structuredData: true});
+  let model;
+  if (req.body.type == "Disable"){
+    model = MasterStateSketchDisableModel.fromJson(req.body);
+  }else{
+    model = MasterStateSketchServiceModel.fromJson(req.body);
+
+  }
 
   
-  let result = await masterStateSketchHandler.add(req.params.masterUid, MasterStateSketchServiceModel.fromJson(req.body));
+  let result = await masterStateSketchHandler.add(req.params.masterUid, model);
   
   if (result != null){
     if (result){
@@ -478,16 +486,24 @@ app.put("/master/sketch/:masterUid/",async (req,res)=>{
   // get updatedFileds from request
   let updatedFields = req.body;
   // get master state sketch guid updatedFields and remove key from updatedFields
-  let guid = updatedFields.guid;
-  delete updatedFields.guid;
-  let result = await masterStateSketchHandler.update(masterUid, guid, updatedFields);
+  // let guid = updatedFields.guid;
+  // delete updatedFields.guid;
+  let result = await masterStateSketchHandler.update(masterUid, updatedFields.guid, updatedFields);
   logger.info(`[api] update master state sketch handled`, {structuredData: true});
   logger.debug(`[api] ${JSON.stringify(result)}`, {structuredData: true});
   if (result != null){
+    if (!result){
+      res.send({
+        code: 400,
+        msg: "event not handled.",
+      });
+    }else{
       res.send({
         code: 200,
         data: result.toJson(),
       });
+    }
+
   }else{
     res.send({
       code: 400,
