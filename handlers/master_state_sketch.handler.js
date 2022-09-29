@@ -42,7 +42,8 @@ const update = async function(uid,guid, updatedFields){
     for (let key in updatedFields){
         let value = updatedFields[key];
         // value is formatted iso date string, with regex
-        if (value != null && typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)){
+        if (value != null && typeof value === 'string' 
+        && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)){
             updatedFields[key] = new Date(value);
         }
     }
