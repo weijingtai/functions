@@ -1,5 +1,5 @@
 const {logger} = require('../logger/firebase.logger');
-const {OnlineInfoCollections,arrayUnion,arrayRemove,DeleteValue} = require('../database/firebase.database');
+const {OnlineMastersCollection,arrayUnion,arrayRemove,DeleteValue} = require('../database/firebase.database');
 
 const {MasterStateSketchServiceModel,
     MasterStateSketchDisableModel,
@@ -23,7 +23,7 @@ const listAll = async function(uid) {
 }
 const _listAllData = async function(uid){
     logger.debug(`_listAllData by uid: ${uid}`);
-    logger.info(`_listAllData: list all master state sketch from OnlineInfoCollections`);
+    logger.info(`_listAllData: list all master state sketch from OnlineMastersCollection`);
     var documentSnapshot = await _getByUid(uid);
     if (!documentSnapshot.exists) {
         logger.warn(`_listAllData: not found masterUid.`);
@@ -40,7 +40,7 @@ const _listAllData = async function(uid){
 }
 const length = async function(uid) {
     logger.debug(`length by uid: ${uid}`);
-    logger.info(`length: list all master state sketch from OnlineInfoCollections`);
+    logger.info(`length: list all master state sketch from OnlineMastersCollection`);
     var documentSnapshot = await _getByUid(uid);
     if (!documentSnapshot.exists) {
         logger.warn(`length: not found masterUid.`);
@@ -156,10 +156,10 @@ const remove = async function(uid,guid){
     }
 }
 async function _getDocumentReference(uid){
-    return await OnlineInfoCollections.doc(uid);
+    return await OnlineMastersCollection.doc(uid);
 }
 async function _getByUid(uid){
-    return await OnlineInfoCollections.doc(uid).get();
+    return await OnlineMastersCollection.doc(uid).get();
 }
 
 module.exports = {
