@@ -16,7 +16,34 @@ const app = express();
 // Add middleware to authenticate requests
 
 
-const {TestCollection} = require('./database/firebase.database');
+// const {TestCollection} = require('./database/firebase.database');
+const {TestCollection,auth} = require('./database/firebase.database');
+app.post("/auth",async (req,res)=>{
+  // res.send("Hello World")
+  // let email = req.body.email
+  // let password = req.body.password
+  // logger.info(`email: ${email}, password: ${password}`)
+
+  let idToken = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJuYW1lIjoi6LaF5Yeh5oyJ5pGpIiwicGljdHVyZSI6Imh0dHBzOi8vMTkyLjE2OC4wLjE0MC9oZWFkcHJvZmlsZS9oMS5qcGciLCJyb2xlIjoiSE9TVCIsImVtYWlsIjoid2p0QHdqdC5pbyIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwicGhvbmVfbnVtYmVyIjoiKzE2MjY5MDUzMTY4IiwiYXV0aF90aW1lIjoxNjY3OTY0OTU4LCJ1c2VyX2lkIjoib2tDWU9BdzBPN3Z4VmxHSzlvN3paOHpucWNmNCIsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsid2p0QHdqdC5pbyJdLCJwaG9uZSI6WyIrMTYyNjkwNTMxNjgiXX0sInNpZ25faW5fcHJvdmlkZXIiOiJwYXNzd29yZCJ9LCJpYXQiOjE2Njc5NjQ5NTgsImV4cCI6MTY2Nzk2ODU1OCwiYXVkIjoibWFzc2FnZS1vMm8tZGV2IiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL21hc3NhZ2UtbzJvLWRldiIsInN1YiI6Im9rQ1lPQXcwTzd2eFZsR0s5bzd6Wjh6bnFjZjQifQ."
+  
+  auth
+  .verifyIdToken(idToken)
+  .then((user)=>{
+    logger.info(`User ${user.uid} signed in successfully`)
+    res.send({
+      code: 204,
+      data: user,
+    })
+  })
+  .catch((err)=>{
+    logger.error(`Error signing in user: ${err}`)
+    res.send({
+      code: 403,
+      message: err.message
+    })
+  });
+
+});
 app.get("/", async (req, res)  =>{
   process.env.FUNCTIONS_EMULATOR === true ? logger.info("local") : logger.info("cloud");
   res.send({
@@ -46,12 +73,12 @@ app.get("/user/:id", async (req, res)  =>{
 });
 
 
-const ios = require('./services/ios_notification.service');
-app.post("/notify/:deviceId",(req, res) =>{
-  ios.doSend([req.params.deviceId], "high", req.body).then((result)=>{
-    res.send(result);
-  });
-})
+// const ios = require('./services/ios_notification.service');
+// app.post("/notify/:deviceId",(req, res) =>{
+//   ios.doSend([req.params.deviceId], "high", req.body).then((result)=>{
+//     res.send(result);
+//   });
+// })
 const orderHandler = require('./handlers/order.handler');
 app.put("/order/:guid/:operate",async(req,res)=>{
   let guid = req.params.guid;
@@ -567,12 +594,32 @@ app.get("/master/sketch/:masterUid/",async (req,res)=>{
   }
 });
 
+////////////////////////////////
+/// master location report
+////////////////////////////////
+const masterLocationReportHandler = require('./handlers/master_location.handler');
 
-
-/// temp 09/23/2022 5:56 PM
-
-exports.textapi = onRequest((req,resp) => {
-  logger.log(cloudEvent);
-  resp.send("hello world");
+exports.addServiceEvents = firestore
+.document('Locations/{masterUid}/{dateStr}/{reportGuid}')
+.onCreate( async (snap, context) => {
+  // get params from request
+  logger.info(`[trigger] master location report handled`, {structuredData: true});
+  let masterUid = context.params.masterUid;
+  await masterLocationReportHandler.onLocationChanged(masterUid, snap.data());
+  logger.info(`[trigger] master location report handled`, {structuredData: true});
 });
+
+
+
+
+/// location service api
+app.get("/nearby/master",async (req,res)=>{
+  logger.info("nearby master handle start.", {structuredData: true});
+  logger.debug(`nearby master handled ${JSON.stringify(req.body)}`, {structuredData: true});
+  res.send({
+    code: 200,
+  });
+  logger.info("nearby master handled finished.", {structuredData: true});
+});
+
 

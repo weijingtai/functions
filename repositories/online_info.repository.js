@@ -1,7 +1,7 @@
 
 // const admin = require('firebase-admin');
-const admin = require("../database/firebase.database")();
-const OnlineInfoCollections = admin.firestore().collection("OnlineInfo")
+// const admin = require("../database/firebase.database")();
+const {OnlineInfoCollections} = require('../database/firebase.database');
 const logger = require("firebase-functions").logger;
 
 
@@ -10,11 +10,6 @@ const DeviceNotificationToken = require("../models/DeviceNotificationToken");
 
 const getUserNotificationBaseInfoByUid = async function(uid) {
     logger.info(`getUserNotificationBaseInfoByUid: get masterUid:${uid} from OnlineInfoCollections`);
-    // logger.info(`${admin}`)
-    
-//    OnlineInfoCollections.doc("WiqoPCGiF4uw7K3m84xSG6gZZpzG").get().then(snap=>{
-//     logger.info(`getUserNotificationBaseInfoByUid: ${snap}`);
-//    })
    var notificationInfoSnapshot = await OnlineInfoCollections.doc(uid).get()
    if (!notificationInfoSnapshot.exists){
        throw new Error("MasterUid not found in OnlineInfo.")
@@ -30,10 +25,30 @@ var getDeviceNotificationToken = function(uid,onlineinfoSnaphostData){
 
     return new UserNotificationBaseInfo(uid,onlineinfoSnaphostData['deviceType'],deviceNotificationTokenList);
 }
+const get= async function(uid){
+    logger.info(`getOnlineInfo: get masterUid:${uid} from OnlineInfoCollections`);
+    var onlineInfo = await OnlineInfoCollections.doc(uid).get();
+    if (!onlineInfo.exists){
+        logger.info(`getOnlineInfo: masterUid:${uid} not found.`);
+        return null;
+    }
+    logger.info(`getOnlineInfo: get masterUid:${uid} from OnlineInfoCollections success.`);
+    return onlineInfo.data();
+}
+const update= async function(uid,onlineInfo){
+    logger.info(`updateOnlineInfo: update masterUid:${uid} from OnlineInfoCollections`);
+    var updateResult = await OnlineInfoCollections.doc(uid).set(onlineInfo, { merge: true });
+    logger.info(`updateOnlineInfo: update masterUid:${uid} from OnlineInfoCollections success.`);
+    return updateResult;
+
+
+}
 
 module.exports = {
     // OnlineInfoCollections:OnlineInfoCollections,
     // for test only
     getDeviceNotificationToken:getDeviceNotificationToken,
-    getUserNotificationBaseInfoByUid:getUserNotificationBaseInfoByUid
+    getUserNotificationBaseInfoByUid:getUserNotificationBaseInfoByUid.apply,
+    get,
+    update,
 }
