@@ -1,7 +1,7 @@
 const {logger} = require('../logger/firebase.logger');
 
 const MasterStateSketchRepository = require('../repositories/master_state_sketch.repository');
-const {MasterStateSketchDisableModel,MasterStateSketchServiceModel} = require('../models/master_state_sketch.model');
+const {MasterStateSketchUnavailableModel,MasterStateSketchServingModel} = require('../models/master_state_sketch.model');
 const { ServiceStateEnum } = require('../models/service_state.enum');
 
 const listAll = async function(uid) {
@@ -35,9 +35,9 @@ const updateServiceStateSketch = async function(uid,guid, updatedFields){
         logger.info(`[service] updateServiceStateSketch: $uid=${uid}, guid=${guid} is not found`);
         return false;
     }
-    // check model from repository is MasterStateSketchServiceModel 
-    if(!(serviceStateSketch instanceof MasterStateSketchServiceModel)){
-        logger.info(`[service] updateServiceStateSketch: serviceStateSketch=${guid} is not MasterStateSketchServiceModel`);
+    // check model from repository is MasterStateSketchServingModel 
+    if(!(serviceStateSketch instanceof MasterStateSketchServingModel)){
+        logger.info(`[service] updateServiceStateSketch: serviceStateSketch=${guid} is not MasterStateSketchServingModel`);
         return false;
     }
     logger.debug(`[service] updateServiceStateSketch: ${JSON.stringify(serviceStateSketch.toJson())}`);
@@ -122,9 +122,9 @@ const updateDisableStateSketchEndAt = async function(uid,guid, updatedEndAt){
         return false;
     }
     logger.debug(`[service] updateDisableStateSketchEndAt: ${JSON.stringify(disableStateSketch.toJson())}`);
-    // check model from repository is MasterStateSketchDisableModel
-    if(!(disableStateSketch instanceof MasterStateSketchDisableModel)){
-        logger.warn(`[service] updateDisableStateSketchEndAt: id=${uid}, guid=${guid} is not MasterStateSketchDisableModel`);
+    // check model from repository is MasterStateSketchUnavailableModel
+    if(!(disableStateSketch instanceof MasterStateSketchUnavailableModel)){
+        logger.warn(`[service] updateDisableStateSketchEndAt: id=${uid}, guid=${guid} is not MasterStateSketchUnavailableModel`);
         return false;
     }
 
@@ -161,9 +161,9 @@ const updateDisableStateSketchToCanceled = async function(uid,guid){
         return false;
     }
     logger.debug(`[service] updateDisableStateSketchEndAt: ${JSON.stringify(disableStateSketch.toJson())}`);
-    // check model from repository is MasterStateSketchDisableModel
-    if(!(disableStateSketch instanceof MasterStateSketchDisableModel)){
-        logger.warn(`[service] updateDisableStateSketchEndAt: model is not MasterStateSketchDisableModel`);
+    // check model from repository is MasterStateSketchUnavailableModel
+    if(!(disableStateSketch instanceof MasterStateSketchUnavailableModel)){
+        logger.warn(`[service] updateDisableStateSketchEndAt: model is not MasterStateSketchUnavailableModel`);
         return false;
     }
     // check current disable state sketch is not canceled

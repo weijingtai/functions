@@ -125,7 +125,6 @@ const updateAssignToAccept = async (assignGuid,acceptedAt) => {
         return false;
     }
     // check assign is not expired
-    assign.timeoutAt
     if (assign.timeoutAt == null){
         logger.warn(`[service] assign timeoutAt is null`, {structuredData: true});
         return false;

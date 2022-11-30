@@ -1,19 +1,17 @@
 const {logger} = require('../logger/firebase.logger');
 const {OnlineMastersCollection,arrayUnion,arrayRemove,DeleteValue} = require('../database/firebase.database');
 
-const {MasterStateSketchServiceModel,
-    MasterStateSketchDisableModel,
-    MasterStateSketchEnum} = require('../models/master_state_sketch.model');
+const {MasterStateSketchUnavailableModel,MasterStateSketchServingModel,MasterStateSketchEnum} = require('../models/master_state_sketch.model');
 
 const listAll = async function(uid) {
     let stateSketches = await _listAllData(uid);
     let reuslt = [];
     for (let i = 0; i < stateSketches.length; i++) {
         let masterStateSketchData = stateSketches[i];
-        if (masterStateSketchData.type == MasterStateSketchEnum.Service.toString()){
-            reuslt.push(MasterStateSketchServiceModel.fromJson(masterStateSketchData));
-        }else if (masterStateSketchData.type == MasterStateSketchEnum.Disable.toString()){
-            reuslt.push(MasterStateSketchDisableModel.fromJson(masterStateSketchData));
+        if (masterStateSketchData.type == MasterStateSketchEnum.Serving.toString()){
+            reuslt.push(MasterStateSketchServingModel.fromJson(masterStateSketchData));
+        }else if (masterStateSketchData.type == MasterStateSketchEnum.Unavailable.toString()){
+            reuslt.push(MasterStateSketchUnavailableModel.fromJson(masterStateSketchData));
         } else {
             logger.warn(`listAll: unknown type: ${masterStateSketchData.type}`);
         }
@@ -56,7 +54,7 @@ const length = async function(uid) {
     return stateSketches.length;
 }
 
-// @return MasterStateSketchServiceModel or MasterStateSketchDisableModel by "type" field
+// @return MasterStateSketchServingModel or MasterStateSketchUnavailableModel by "type" field
 const get = async function(uid,guid){
     logger.info(`[repository] get: master state sketch by uid: ${uid} guid: ${guid}`);
     let onlineInfo = await _getByUid(uid);
@@ -74,12 +72,12 @@ const get = async function(uid,guid){
         logger.info(`[repository] get: masterStateSketchData is empty.`);
         return null;
     }
-    if (masterStateSketchData.type == MasterStateSketchEnum.Service.toString()){
-        logger.info(`[repository] get: masterStateSketchData is MasterStateSketchServiceModel.`);
-        return MasterStateSketchServiceModel.fromJson(masterStateSketchData);
-    } else if (masterStateSketchData.type == MasterStateSketchEnum.Disable.toString()){
-        logger.info(`[repository] get: masterStateSketchData is MasterStateSketchServiceModel.`);
-        return MasterStateSketchDisableModel.fromJson(masterStateSketchData);
+    if (masterStateSketchData.type == MasterStateSketchEnum.Serving.toString()){
+        logger.info(`[repository] get: masterStateSketchData is MasterStateSketchServingModel.`);
+        return MasterStateSketchServingModel.fromJson(masterStateSketchData);
+    } else if (masterStateSketchData.type == MasterStateSketchEnum.Unavailable.toString()){
+        logger.info(`[repository] get: masterStateSketchData is MasterStateSketchServingModel.`);
+        return MasterStateSketchUnavailableModel.fromJson(masterStateSketchData);
     }
 
 }
@@ -146,10 +144,10 @@ const remove = async function(uid,guid){
     // and insert new master state sketch to stateSketches
 
 
-    if (masterStateSketch.type == MasterStateSketchEnum.Service.toString()){
-        return MasterStateSketchServiceModel.fromJson(masterStateSketch);
-    } else if (masterStateSketch.type == MasterStateSketchEnum.Disable.toString()){
-        return  MasterStateSketchDisableModel.fromJson(masterStateSketch);
+    if (masterStateSketch.type == MasterStateSketchEnum.Serving.toString()){
+        return MasterStateSketchServingModel.fromJson(masterStateSketch);
+    } else if (masterStateSketch.type == MasterStateSketchEnum.Unavailable.toString()){
+        return  MasterStateSketchUnavailableModel.fromJson(masterStateSketch);
     } else {
         logger.warn(`update: unknown type: ${masterStateSketch.type}`);
         return null;
