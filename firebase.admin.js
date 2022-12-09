@@ -1,4 +1,5 @@
 var admin = require('firebase-admin');
+const FieldValue = require('firebase-admin').firestore.FieldValue;
 var serviceAccount = require("./massage-o2o-dev-7fd17798efec.json");
 
 // const {getFirestore} = require('firebase-admin/firestore');
@@ -21,4 +22,5 @@ function getAdmin(){
 
 module.exports = {
     getAdmin,
+    FieldValue
 }

@@ -7,7 +7,9 @@
 // });
 // const {getFirestore} = require('firebase-admin/firestore');
 // const firestore = getFirestore();
+const {FieldValue} = require('firebase-admin/firestore');
 const {getAdmin} = require('../firebase.admin');
+// const fieldValue = getFieldValue()
 const admin = getAdmin();
 const firestore = admin.firestore();
 
@@ -31,9 +33,7 @@ const ServiceCollection = firestore.collection("Service")
 const AssignCollection = firestore.collection("Assign")
 const UserSearchCollection = firestore.collection("UserSearch")
 const TestCollection = firestore.collection("test")
-// console.log("-------------------")
-console.log(`${JSON.stringify(admin.firestore.FieldValue)}`)
-// console.log("-------------------")
+
 module.exports = {
     UserCollection,
     SubscribeListCollections,
@@ -46,13 +46,14 @@ module.exports = {
     ActivatedOrderCollectionGroup,
     AssignCollection,
     
-    // DeleteValue: admin.firestore.FieldValue.delete,
-    DeleteValue:null,
+    DeleteValue: FieldValue.delete,
+    // DeleteValue: firebaseAdmin.firestore.FieldValue.delete(),
+
     // arrayUnion: admin.firestore.FieldValue.arrayUnion,
     // arrayRemove:admin.firestore.FieldValue.arrayRemove
     
     // DeleteValue: getAdmin().firestore.FieldValue.delete,
-    // arrayUnion:getAdmin().firestore.FieldValue.arrayUnion,
+    // arrayUnion:admin.firestore.FieldValue.arrayUnion,
     // arrayRemove:getAdmin().firestore.FieldValue.arrayRemove
 
     auth

@@ -1,7 +1,9 @@
 const {logger} = require('../logger/firebase.logger');
 
+const { v4: uuidv4 } = require('uuid');
+
 const MasterStateSketchRepository = require('../repositories/master_state_sketch.repository');
-const {MasterStateSketchUnavailableModel,MasterStateSketchServingModel} = require('../models/master_state_sketch.model');
+const {MasterStateSketchUnavailableModel,MasterStateSketchServingModel,MasterStateSketchAppointmentModel} = require('../models/master_state_sketch.model');
 const { ServiceStateEnum } = require('../models/service_state.enum');
 
 const listAll = async function(uid) {
@@ -18,6 +20,441 @@ const length = async function(uid) {
 const add = async function(uid, newMasterStateSketch){
     return await MasterStateSketchRepository.add(uid, newMasterStateSketch);
 }
+const addAppointment = async function(serviceModel){
+    logger.info(`[service] addAppointment: service ${serviceModel.guid} accpeted by masterUid ${serviceModel.assignedMasterUid}`);
+    logger.debug(`[service] addAppointment: serviceModel=${JSON.stringify(serviceModel)}`);
+    let endAt = new Date(serviceModel.appointmentStartAt.getTime() + serviceModel.totalServiceMinutes * 60000)
+    // create AppointmentStateSketchModel from acceptedAssign
+    let newAppointmentStateSketch = new MasterStateSketchAppointmentModel(
+        uuidv4(),
+        serviceModel.hostUid,
+        serviceModel.orderGuid,
+        serviceModel.guid,
+
+        serviceModel.appointmentStartAt,
+        null,
+        endAt, // endAt
+
+        serviceModel.totalServiceMinutes,
+
+        null,
+        null,
+
+        new Date(),
+        null,
+    );
+    logger.debug(`[service] addAppointment: newAppointmentStateSketch=${newAppointmentStateSketch.endAt}`);
+
+    return await add(serviceModel.assignedMasterUid,newAppointmentStateSketch)
+
+}
+const updateAppointmentStartAt = async function(serviceModel, previousStartAt, newStartAt){
+
+    logger.info(`[service] updateAppointmentStartAt: service ${serviceModel.guid} startAt is updated from ${previousStartAt} to ${newStartAt}`);
+    // get previous appointment sketch by service's assignMasterUid and service's guid
+    let appointmentStateSketch = await MasterStateSketchRepository.getAppointmentStateSketchByMasterUidAndServiceGuid(serviceModel.assignedMasterUid,serviceModel.guid);
+    logger.debug(`[service] updateAppointmentStartAt: appointmentStateSketch=${JSON.stringify(appointmentStateSketch)}`);
+    if (appointmentStateSketch == null) {
+        logger.warn(`[service] updateAppointmentStartAt: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    logger.debug(`[service] updateAppointmentStartAt: appointmentStateSketch=${JSON.stringify(appointmentStateSketch.toJson())}`);
+
+    // update appointment sketch 
+    appointmentStateSketch.previousStartAt = previousStartAt;
+    appointmentStateSketch.startAt = newStartAt;
+    appointmentStateSketch.lastModifiedAt = new Date();
+    appointmentStateSketch.endAt = new Date(newStartAt.getTime() + appointmentStateSketch.serviceDurationMinutes * 60000);
+
+    logger.debug(`[service] updateAppointmentStartAt: appointmentStateSketch=${JSON.stringify(appointmentStateSketch.toJson())}`);
+    let result = await MasterStateSketchRepository.updateAppointmentStateSketch(serviceModel.assignedMasterUid,appointmentStateSketch);
+    logger.info(`[service] updateAppointmentStartAt finished.`);
+
+    return result
+
+}
+const updateAppointmentServiceDuration = async function(serviceModel,oldDuration, newDuration){
+    // check duration is increased or decreased
+    let updateDurationMinutes = newDuration - oldDuration;
+    logger.info(`[service] updateAppointmentServiceDuration: service ${serviceModel.guid} duration is updated from ${oldDuration} to ${newDuration}, updateDurationMinutes=${updateDurationMinutes}`);
+    // get previous appointment sketch by service's assignMasterUid and service's guid
+    let appointmentStateSketch = await MasterStateSketchRepository.getAppointmentStateSketchByMasterUidAndServiceGuid(serviceModel.assignedMasterUid,serviceModel.guid);
+    logger.debug(`[service] updateAppointmentServiceDuration: appointmentStateSketch=${JSON.stringify(appointmentStateSketch)}`);
+    if (appointmentStateSketch == null) {
+        logger.warn(`[service] updateAppointmentServiceDuration: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    logger.debug(`[service] updateAppointmentServiceDuration: appointmentStateSketch=${JSON.stringify(appointmentStateSketch.toJson())}`);
+    // update appointment sketch 
+    appointmentStateSketch.serviceDurationMinutes = newDuration;
+    if (appointmentStateSketch.addSubMinutes != null && appointmentStateSketch.addSubMinutes.length > 0) {
+        appointmentStateSketch.addSubMinutes.push(updateDurationMinutes);
+    }else{
+        appointmentStateSketch.addSubMinutes = [updateDurationMinutes];
+    }
+    appointmentStateSketch.lastModifiedAt = new Date();
+    appointmentStateSketch.endAt = new Date(appointmentStateSketch.startAt.getTime() + appointmentStateSketch.serviceDurationMinutes * 60000);
+    logger.debug(`[service] updateAppointmentServiceDuration: appointmentStateSketch=${JSON.stringify(appointmentStateSketch.toJson())}`);
+    let result = await MasterStateSketchRepository.updateAppointmentStateSketch(serviceModel.assignedMasterUid,appointmentStateSketch);
+    logger.info(`[service] updateAppointmentServiceDuration finished.`);
+
+    return result
+
+}
+const cancelAppointmentService = async (serviceModel)=>{
+    logger.info(`[service] cancelAppointmentService: service ${serviceModel.guid} is cancelled by masterUid ${serviceModel.assignedMasterUid}`);
+    // get previous appointment sketch by service's assignMasterUid and service's guid
+    let appointmentStateSketch = await MasterStateSketchRepository.getAppointmentStateSketchByMasterUidAndServiceGuid(serviceModel.assignedMasterUid,serviceModel.guid);
+    if (appointmentStateSketch == null) {
+        logger.warn(`[service] cancelAppointmentService: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    logger.debug(`[service] cancelAppointmentService: appointmentStateSketch=${JSON.stringify(appointmentStateSketch)}`);
+    // update appointment sketch
+    appointmentStateSketch.canceledAt = serviceModel.lastModifiedAt;
+    appointmentStateSketch.lastModifiedAt = new Date();
+    logger.debug(`[service] cancelAppointmentService: appointmentStateSketch=${JSON.stringify(appointmentStateSketch.toJson())}`);
+    let result = await MasterStateSketchRepository.updateAppointmentStateSketch(serviceModel.assignedMasterUid,appointmentStateSketch);
+    logger.info(`[service] cancelAppointmentService finished.`);
+    return result
+
+}
+
+const setupServing = async (serviceModel)=>{
+    logger.info(`[service] setupServing: service ${serviceModel.guid} is setup serving by masterUid ${serviceModel.assignedMasterUid}`);
+    // check current service sketch
+    // guid,
+    // storeUid,
+    // orderUid,
+    // serviceUid,
+    // startedAt,
+    // previousStartAt,
+    // endAt,
+    // serviceDurationMinutes,
+    // lastModifiedAt,
+    // canceledAt,
+    // createdAt,
+    // addSubMinutes,
+    // resetAt,
+    // completedSeconds
+    let serving = new MasterStateSketchServingModel(
+        uuidv4(),
+        serviceModel.hostUid,
+        serviceModel.orderGuid,
+        serviceModel.guid,
+        serviceModel.startedAt,
+        null,
+        serviceModel.assertCompletedAt,
+        serviceModel.totalServiceMinutes,
+        null,
+        null,
+        serviceModel.startedAt,
+        null,
+        null,
+        serviceModel.completedSeconds
+    )
+    await MasterStateSketchRepository.setupServing(serviceModel.assignedMasterUid,serving);
+    return serving;
+
+}
+const updateServingServiceDuration = async (serviceModel,totalAddedMinutes)=>{
+    logger.info(`[service] updateServingServiceDuration: service ${serviceModel.guid} is update serving by masterUid ${serviceModel.assignedMasterUid}`);
+    // get current serving sketch
+    let serving = await MasterStateSketchRepository.getServing(serviceModel.assignedMasterUid,serviceModel.guid);
+    if (serving == null) {
+        logger.warn(`[service] updateServingServiceDuration: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    if (serving.canceledAt != null) {
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already canceled`);
+        return null;
+    }
+    if (serving.deletedAt != null){
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already deleted`);
+        return null;
+    }
+    logger.debug(`[service] updateServingServiceDuration: totalAddedMinutes=${totalAddedMinutes}`);
+
+    // update serving sketch
+    serving.serviceDurationMinutes = serviceModel.totalServiceMinutes;
+    // when addSubMinutes is null, assign a new array
+    if (serving.addSubMinutes == null) {
+        serving.addSubMinutes = []
+    }
+    serving.addSubMinutes.push(totalAddedMinutes);
+    serving.lastModifiedAt = serviceModel.lastModifiedAt;
+    // when endAt is null, it means service is pasued or not started
+    if (serving.endAt != null) {
+        logger.debug(`[service] updateServingServiceDuration: replace endAt with new ${serviceModel.assertCompletedAt}`);
+        serving.endAt = serviceModel.assertCompletedAt;
+    }else{
+        logger.debug(`[service] updateServingServiceDuration: service ${serviceModel.guid} is paused or not started`);
+    }
+    logger.debug(`[service] updateServingServiceDuration: serving=${JSON.stringify(serving.toJson())}`);
+    await MasterStateSketchRepository.updateServing(serviceModel.assignedMasterUid,serving);
+    return serving;
+
+
+}
+const pauseServing = async (serviceModel)=>{
+    logger.debug(`[service] pauseServing: service ${serviceModel.guid} pause by masterUid ${serviceModel.assignedMasterUid}`);
+    // get current serving sketch
+    let serving = await MasterStateSketchRepository.getServing(serviceModel.assignedMasterUid,serviceModel.guid);
+    if (serving == null) {
+        logger.warn(`[service] pauseServing: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    if (serving.canceledAt != null) {
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already canceled`);
+        return null;
+    }
+    if (serving.deletedAt != null){
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already deleted`);
+        return null;
+    }
+    // check this modify should newer than older
+    if (serving.lastModifiedAt != null){
+        if (serving.lastModifiedAt.getTime() > serviceModel.lastModifiedAt.getTime()) {
+            logger.warn(`[service] pauseServing: oldServing already newer than newServing`);
+            return null;
+        }
+    }
+    if (serving.endAt == null) {
+        logger.warn(`[service] pauseServing: service ${serviceModel.guid} is already paused`);
+        return null;
+    }
+    // update serving sketch
+    serving.endAt = null;
+    serving.lastModifiedAt = serviceModel.lastModifiedAt;
+    serving.completedSeconds = serviceModel.completedSeconds;
+    logger.debug(`[service] pauseServing: serving=${JSON.stringify(serving.toJson())}`);
+    await MasterStateSketchRepository.updateServing(serviceModel.assignedMasterUid,serving);
+    return serving;
+
+}
+
+const resumeServing = async (serviceModel)=>{
+    logger.debug(`[service] resumeServing: service ${serviceModel.guid} resume by masterUid ${serviceModel.assignedMasterUid}`);
+    // get current serving sketch
+    let serving = await MasterStateSketchRepository.getServing(serviceModel.assignedMasterUid,serviceModel.guid);
+    if (serving == null) {
+        logger.warn(`[service] resumeServing: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    if (serving.canceledAt != null) {
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already canceled`);
+        return null;
+    }
+    if (serving.deletedAt != null){
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already deleted`);
+        return null;
+    }
+    // check this modify should newer than older
+    if (serving.lastModifiedAt != null){
+        if (serving.lastModifiedAt.getTime() > serviceModel.lastModifiedAt.getTime()) {
+            logger.warn(`[service] resumeServing: oldServing already newer than newServing`);
+            return null;
+        }
+    }
+    if (serving.endAt != null) {
+        logger.warn(`[service] resumeServing: service ${serviceModel.guid} is already in serving.`);
+        return null;
+    }
+    // update serving sketch
+    serving.endAt = serviceModel.assertCompletedAt;
+    serving.lastModifiedAt = serviceModel.lastModifiedAt;
+    serving.completedSeconds = serviceModel.completedSeconds;
+    logger.debug(`[service] resumeServing: serving=${JSON.stringify(serving.toJson())}`);
+    await MasterStateSketchRepository.updateServing(serviceModel.assignedMasterUid,serving);
+}
+const extraCompletedServingServiceDuration = async (serviceModel,increasedMinutes)=>{
+    logger.debug(`[service] extraCompletedServingServiceDuration: service ${serviceModel.guid} extra completed by masterUid ${serviceModel.assignedMasterUid}`);
+    // get current serving sketch
+    let serving = await MasterStateSketchRepository.getServing(serviceModel.assignedMasterUid,serviceModel.guid);
+    if (serving == null) {
+        logger.warn(`[service] extraCompletedServingServiceDuration: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    if (serving.canceledAt != null) {
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already canceled`);
+        return null;
+    }
+    if (serving.deletedAt != null){
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already deleted`);
+        return null;
+    }
+    // check this modify should newer than older
+    if (serving.lastModifiedAt != null){
+        if (serving.lastModifiedAt.getTime() > serviceModel.lastModifiedAt.getTime()) {
+            logger.warn(`[service] extraCompletedServingServiceDuration: oldServing already newer than newServing`);
+            return null;
+        }
+    }
+    // update serving sketch
+    serving.serviceDurationMinutes = serviceModel.totalServiceMinutes;
+    // when addSubMinutes is null, assign a new array
+    if (serving.addSubMinutes == null) {
+        serving.addSubMinutes = []
+    }
+    serving.addSubMinutes.push(increasedMinutes);
+    serving.lastModifiedAt = serviceModel.lastModifiedAt;
+    serving.completedSeconds = serviceModel.completedSeconds;
+    // serving.previousStartAt = serviceModel.lastModifiedAt;
+    // when endAt is null, it means service is pasued or not started
+    if (serving.endAt != null) {
+        logger.debug(`[service] extraCompletedServingServiceDuration: replace endAt with new ${serviceModel.assertCompletedAt}`);
+        serving.endAt = serviceModel.assertCompletedAt;
+    }else{
+        logger.debug(`[service] extraCompletedServingServiceDuration: service ${serviceModel.guid} is paused or not started`);
+    }
+    logger.debug(`[service] extraCompletedServingServiceDuration: serving=${JSON.stringify(serving.toJson())}`);
+    await MasterStateSketchRepository.updateServing(serviceModel.assignedMasterUid,serving);
+    return serving;
+}
+
+const finishServing = async (serviceModel)=>{
+    logger.debug(`[service] finishServing: service ${serviceModel.guid} finish by masterUid ${serviceModel.assignedMasterUid}`);
+    // get current serving sketch
+    let serving = await MasterStateSketchRepository.getServing(serviceModel.assignedMasterUid,serviceModel.guid);
+    if (serving == null) {
+        logger.warn(`[service] finishServing: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    if (serving.canceledAt != null) {
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already canceled`);
+        return null;
+    }
+    if (serving.deletedAt != null){
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already deleted`);
+        return null;
+    }
+    // check this modify should newer than older
+    if (serving.lastModifiedAt != null){
+        if (serving.lastModifiedAt.getTime() > serviceModel.lastModifiedAt.getTime()) {
+            logger.warn(`[service] finishServing: oldServing already newer than newServing`);
+            return null;
+        }
+    }
+
+    serving.endAt = serviceModel.doneAt;
+    serving.lastModifiedAt = serviceModel.lastModifiedAt;
+    serving.completedSeconds = serviceModel.completedSeconds;
+    logger.debug(`[service] finishServing: serving=${JSON.stringify(serving.toJson())}`);
+    await MasterStateSketchRepository.updateServing(serviceModel.assignedMasterUid,serving);
+}
+
+const resetServing = async (serviceModel,resetAt)=>{
+    logger.info(`[service] resetServing: service ${serviceModel.guid} reset by masterUid ${serviceModel.assignedMasterUid}`);
+    // get current serving sketch
+    let serving = await MasterStateSketchRepository.getServing(serviceModel.assignedMasterUid,serviceModel.guid);
+    if (serving == null) {
+        logger.warn(`[service] resetServing: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    if (serving.canceledAt != null) {
+        logger.warn(`[service] resetServing: service ${serviceModel.guid} is already canceled`);
+        return null;
+    }
+    if (serving.deletedAt != null){
+        logger.warn(`[service] resetServing: service ${serviceModel.guid} is already deleted`);
+        return null;
+    }
+    // check this modify should newer than older
+    if (serving.lastModifiedAt != null){
+        if (serving.lastModifiedAt.getTime() > serviceModel.lastModifiedAt.getTime()) {
+            logger.warn(`[service] resetServing: oldServing(${serving.lastModifiedAt}) already newer than newServing(${serving.lastModifiedAt}) ${serving.lastModifiedAt.getTime()}-${serviceModel.lastModifiedAt.getTime()}`);
+            return null;
+        }
+    }
+    // update serving sketch
+    serving.previousStartAt = serving.startAt;
+    serving.startAt = resetAt;
+    serving.resetAt = resetAt;
+    serving.lastModifiedAt = serviceModel.lastModifiedAt;
+    if (serving.endAt != null) {
+        serving.endAt = serviceModel.assertCompletedAt;
+    }
+    serving.completedSeconds = serviceModel.completedSeconds;
+    logger.debug(`[service] resetServing: serving=${JSON.stringify(serving.toJson())}`);
+    await MasterStateSketchRepository.updateServing(serviceModel.assignedMasterUid,serving);
+    return serving;
+
+}
+
+// when jumpSeconds is negative, it means jump back
+const jumpServing = async (serviceModel,jumpSeconds)=>{
+    logger.info(`[service] jumpServing: service ${serviceModel.guid} jump serving times ${jumpSeconds} seconds by masterUid ${serviceModel.assignedMasterUid}`);
+    // get current serving sketch
+    let serving = await MasterStateSketchRepository.getServing(serviceModel.assignedMasterUid,serviceModel.guid);
+    if (serving == null) {
+        logger.warn(`[service] jumpServing: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    if (serving.canceledAt != null) {
+        logger.warn(`[service] jumpServing: service ${serviceModel.guid} is already canceled`);
+        return null;
+    }
+    if (serving.deletedAt != null){
+        logger.warn(`[service] jumpServing: service ${serviceModel.guid} is already deleted`);
+        return null;
+    }
+    // check this modify should newer than older
+    if (serving.lastModifiedAt != null){
+        if (serving.lastModifiedAt.getTime() > serviceModel.lastModifiedAt.getTime()) {
+            logger.warn(`[service] jumpServing: oldServing already newer than newServing`);
+            return null;
+        }
+    }
+    logger.debug(`[service] jumpServing: serving=${JSON.stringify(serving.toJson())}`);
+    // update serving sketch
+    serving.lastModifiedAt = serviceModel.lastModifiedAt;
+    serving.completedSeconds = serviceModel.completedSeconds;
+    if (serving.endAt != null){
+        serving.endAt = serviceModel.assertCompletedAt;
+    }
+    logger.debug(`[service] jumpServing: serving=${JSON.stringify(serving.toJson())}`);
+    await MasterStateSketchRepository.updateServing(serviceModel.assignedMasterUid,serving);
+    return serving;
+}
+
+const cancelServing= async (serviceModel,canceledAt)=>{
+    // get current serving sketch from repository
+    // when it's not exists logging warning and return null
+    // when it's exists
+    //     check serving is not canceled
+    //     check this modify should newer than older
+    //     update serving sketch
+    //     return serving sketch
+    logger.debug(`[service] cancelServingService: service ${serviceModel.guid} cancel by masterUid ${serviceModel.assignedMasterUid}`);
+    // get current serving sketch
+    let serving = await MasterStateSketchRepository.getServing(serviceModel.assignedMasterUid,serviceModel.guid);
+    if (serving == null) {
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is not found`);
+        return null;
+    }
+    if (serving.canceledAt != null) {
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already canceled`);
+        return null;
+    }
+    if (serving.deletedAt != null){
+        logger.warn(`[service] cancelServingService: service ${serviceModel.guid} is already deleted`);
+        return null;
+    }
+    // check this modify should newer than older
+    if (serving.lastModifiedAt != null){
+        if (serving.lastModifiedAt.getTime() > serviceModel.lastModifiedAt.getTime()) {
+            logger.warn(`[service] cancelServingService: oldServing already newer than newServing`);
+            return null;
+        }
+    }
+    // update serving sketch
+    serving.canceledAt = canceledAt;
+    serving.lastModifiedAt = serviceModel.lastModifiedAt;
+    serving.completedSeconds = serviceModel.completedSeconds;
+    logger.debug(`[service] cancelServingService: serving=${JSON.stringify(serving.toJson())}`);
+    await MasterStateSketchRepository.updateServing(serviceModel.assignedMasterUid,serving);
+    return serving;
+}
 
 
 /// warning: service state update to "Paused" will not update assertCompletedAt
@@ -25,7 +462,7 @@ const add = async function(uid, newMasterStateSketch){
 /// update service state to "Serving" should provide assertCompletedAt
 /// all date string should convert to Date object before pass to this function
 
-const updateServiceStateSketch = async function(uid,guid, updatedFields){
+const updateServiceStateSketch = async (uid, guid, updatedFields)=>{
     logger.info(`[service] updateServiceStateSketch: uid=${uid}, guid=${guid}`);
     logger.debug(`[service] updateServiceStateSketch: uid=${uid}, guid=${guid}, updatedFields=${JSON.stringify(updatedFields)}`);
     // get current disable state sketch from db
@@ -188,8 +625,22 @@ module.exports = {
     listAll,
     length,
     add,
+    addAppointment,
     updateServiceStateSketch,
     remove,
     updateDisableStateSketchEndAt,
-    updateDisableStateSketchToCanceled
+    updateDisableStateSketchToCanceled,
+    updateAppointmentServiceDuration,
+    updateAppointmentStartAt,
+    cancelAppointmentService,
+
+    setupServing,
+    updateServingServiceDuration,
+    pauseServing,
+    resumeServing,
+    finishServing,
+    cancelServing,
+    extraCompletedServingServiceDuration,
+    resetServing,
+    jumpServing
 }

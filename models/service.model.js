@@ -2,12 +2,13 @@ const ServiceStateEnum = require('../models/service_state.enum').ServiceStateEnu
 class ServiceModel{
     constructor(
         guid,
+        hostUid,
         orderGuid,
         seqInOrder,
         creatorUid,
         state,
         createdAt,
-        completedSeconds = 0,
+        completedSeconds,
         replaceByServiceGuid,
         assignedMasterUid,
         totalServiceMinutes,
@@ -16,7 +17,7 @@ class ServiceModel{
         deletedAt,
         assignGuid,
         startedAt,
-        pasuedAt,
+        pausedAt,
         assertCompletedAt,
         doneAt,
         acceptedAt,
@@ -24,6 +25,7 @@ class ServiceModel{
         canceledAt,
     ){
         this.guid = guid;
+        this.hostUid = hostUid;
         this.orderGuid = orderGuid;
         this.seqInOrder = seqInOrder;
         this.creatorUid = creatorUid;
@@ -38,7 +40,7 @@ class ServiceModel{
         this.deletedAt = deletedAt;
         this.assignGuid = assignGuid;
         this.startedAt = startedAt;
-        this.pasuedAt = pasuedAt;
+        this.pausedAt = pausedAt;
         this.assertCompletedAt = assertCompletedAt;
         this.doneAt = doneAt;
         this.acceptedAt = acceptedAt;
@@ -48,6 +50,7 @@ class ServiceModel{
     toJson(){
         var result = {
             guid: this.guid,
+            hostUid: this.hostUid,
             orderGuid: this.orderGuid,
             seqInOrder: this.seqInOrder,
             creatorUid: this.creatorUid,
@@ -62,7 +65,7 @@ class ServiceModel{
             deletedAt: this.deletedAt == null?null:this.deletedAt.toISOString(),
             assignGuid: this.assignGuid,
             startedAt: this.startedAt == null?null:this.startedAt.toISOString(),
-            pasuedAt: this.pasuedAt == null?null:this.pasuedAt.toISOString(),
+            pausedAt: this.pausedAt == null?null:this.pausedAt.toISOString(),
             assertCompletedAt: this.assertCompletedAt == null?null:this.assertCompletedAt.toISOString(),
             doneAt: this.doneAt == null?null:this.doneAt.toISOString(),
             acceptedAt: this.acceptedAt == null?null:this.acceptedAt.toISOString(),
@@ -70,7 +73,7 @@ class ServiceModel{
             canceledAt: this.canceledAt == null?null:this.canceledAt.toISOString(),
         }
         /// remove keys with null value
-        for(var key in result){
+        for(let key in result){
             if(result[key] == null){
                 delete result[key];
             }
@@ -80,6 +83,7 @@ class ServiceModel{
     static fromJson(json){
         return new ServiceModel(
             json.guid,
+            json.hostUid,
             json.orderGuid,
             json.seqInOrder,
             json.creatorUid,
@@ -94,6 +98,7 @@ class ServiceModel{
             json.deletedAt == null?null:new Date(json.deletedAt),
             json.assignGuid,
             json.startedAt == null?null:new Date(json.startedAt),
+            json.pausedAt == null?null:new Date(json.pausedAt),
             json.assertCompletedAt == null?null:new Date(json.assertCompletedAt),
             json.doneAt == null?null:new Date(json.doneAt),
             json.acceptedAt == null?null:new Date(json.acceptedAt),

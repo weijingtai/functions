@@ -19,6 +19,17 @@ const ServiceStateEnum = new Enum([
     "Replaced", 
     "Deleted"
 ],{freeze:true,ignoreCase:true});
+const isReadyToServingState = function(state){
+    return [ServiceStateEnum.Waiting,
+        ServiceStateEnum.MasterSetSail,
+        ServiceStateEnum.CustomerArrived,
+        ServiceStateEnum.Running].includes(state)
+}
+const isDoingServiceState = function(state){
+    return [ServiceStateEnum.Serving,ServiceStateEnum.Paused].includes(state)
+}
 module.exports = {
-    ServiceStateEnum: ServiceStateEnum    
+    ServiceStateEnum,
+    isReadyToServingState,
+    isDoingServiceState,
 };

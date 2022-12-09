@@ -53,10 +53,20 @@ const update = async function(uid,guid, updatedFields){
 const remove = async function(uid,guid,){
     return await MasterStateSketchService.remove(uid,guid);
 }
+
+const dev_AddAppointment = async function(service){
+    return await MasterStateSketchService.addAppointment(service);
+}
+
+
 module.exports = {
     listAll,
     length,
     add,
     update,
-    remove
+    remove,
+
+
+    // dev only
+    dev_AddAppointment
 }

@@ -78,17 +78,88 @@ exports.addServiceEvents = firestore
   }
   logger.info(`[trigger] assign operation done`, {structuredData: true});
 });
-
+const serviceHandler = require('./handlers/service.handler');
+const ServiceModel = require('./models/service.model');
 exports.serviceStateTrigger = firestore
 .document('Service/{serviceGuid}')
 .onUpdate( async (change, context) => {
   logger.info(`[trigger] service updated`, {structuredData: true});
   var preService = change.before.data();
   var curService = change.after.data();
+  logger.debug(`[trigger] old=${JSON.stringify(preService)}`, {structuredData: true});
+  logger.debug(`[trigger] new=${JSON.stringify(curService)}`, {structuredData: true});
+  var preService = ServiceModel.fromJson(change.before.data());
+  var curService =  ServiceModel.fromJson(change.after.data());
   if (preService.state != curService.state){
     logger.info(`[trigger] service state changed`, {structuredData: true});
     await serviceHandler.whenServiceStateChanged(preService, curService);
   }
+  // trigger when service totalServiceMinutes changed
+  if (preService.totalServiceMinutes != curService.totalServiceMinutes){
+    logger.info(`[trigger] service totalServiceMinutes changed`, {structuredData: true});
+    await serviceHandler.whenServiceTotalServiceMinutesChanged(preService, curService);
+  }
+  if ((preService.appointmentStartAt.getTime()/1000) != (curService.appointmentStartAt.getTime()/1000)){
+    logger.info(`[trigger] service appointmentStartAt changed`, {structuredData: true});
+    await serviceHandler.whenServiceStartAtChanged(preService, curService);
+  }
+
+
+
+  // assert service's update is reset
+  // 1. service is completed or finished
+  let preServiceStateStr = preService.state.toString();
+  // if (preServiceStateStr == "Completed" || preServiceStateStr == "Finished"){
+  // move to serviceHandler.whenServiceStateChanged(preService, curService)
+  // if (preServiceStateStr == "Finished"){
+  //   if (preService.doneAt != null && curService.doneAt == null){
+  //     if (curService.state.toString() == "Serving"){
+  //       logger.info(`[trigger] service reset when it's finished, and start serving directly`, {structuredData: true});
+  //       await serviceHandler.whenServiceReset(preService, curService);
+  //     }else 
+  //     if(curService.state.toString() == "Paused"){
+  //       logger.info(`[trigger] ervice reset when it's finished, and set state to 'Paused' waiting resume continue serving`, {structuredData: true});
+  //     }
+  //   }
+  // }else 
+
+  if (preServiceStateStr == "Serving" && curService.state.toString() == "Serving"){
+    // when service in seving state
+    // 'jump forward' or 'jump backward' should has changed with 'completedSeconds' an 'assertCompletedAt' fields at same time
+          // check assertCompletedAt, cause 'completedSeconds' maybe '0' when service is in serving
+    if (preService.assertCompletedAt != curService.assertCompletedAt){
+        if (curService.completedSeconds <= 0){
+            logger.debug(`[handler] service assertCompletedAt changed and completedSeconds set to 0, service been reset `, {structuredData: true});
+            await serviceHandler.whenServiceReset(preService, curService);
+        } else {
+            logger.debug(`[handler] service jump time with completedSeconds from ${preService.completedSeconds} to ${curService.completedSeconds}, and assertCompletedAt from ${preService.assertCompletedAt} to ${curService.assertCompletedAt} `, {structuredData: true});
+            await serviceHandler.whenServiceJump(preService,curService);
+        }
+
+    }else{
+        logger.warn(`[handler] when service state is Serving, but oldService state is ${preService.state}`, {structuredData: true});
+    }
+
+  }
+    
+  if (preServiceStateStr == "Paused" && curService.state.toString() == "Paused"){
+      // 3. service in paused
+      if (preService.completedSeconds <= 0){
+        logger.info(`[trigger] previous completed is ${preService.completedSeconds}, service not started yet, 'reset' and "jump backward" will not doing.`, {structuredData: true});
+      }else{
+        if (curService.completedSeconds <= 0){
+          logger.info(`[trigger] previous completed is ${preService.completedSeconds}, current is ${curService.completedSeconds}. service will be reset.`, {structuredData: true});
+          await serviceHandler.whenServiceReset(preService, curService);
+        }else{
+          logger.info(`[trigger] previous completed is ${preService.completedSeconds}, current is ${curService.completedSeconds}. service will be jump.`, {structuredData: true});
+          await serviceHandler.whenServiceJump(preService,curService); 
+        }
+      }
+
+  }
+  
+  
+
 });
 
 

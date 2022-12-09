@@ -28,7 +28,7 @@ class BaseStateSketchModel{
             endAt:this.endAt == null?null:this.endAt.toISOString(),
             createdAt:this.createdAt.toISOString(),
             canceledAt:this.canceledAt == null?null:this.canceledAt.toISOString(),
-            lastModifiedAt:this.canceledAt == null?null:this.lastModifiedAt.toISOString(),
+            lastModifiedAt:this.lastModifiedAt == null?null:this.lastModifiedAt.toISOString(),
             addSubMinutes:this.addSubMinutes==null||this.addSubMinutes.length==0?null:this.addSubMinutes,
             previousStartAt:this.previousStartAt==null?null:this.previousStartAt.toISOString(),
             type:this.type.toString(),
@@ -136,7 +136,7 @@ class MasterStateSketchAppointmentModel extends BaseStateSketchModel{
         orderUid,
         serviceUid,
 
-        startedAt,
+        startAt,
         previousStartAt,
         endAt,
 
@@ -148,7 +148,7 @@ class MasterStateSketchAppointmentModel extends BaseStateSketchModel{
         createdAt,
         addSubMinutes,
     ){
-        super(guid,startedAt,endAt,createdAt,canceledAt,lastModifiedAt,addSubMinutes,previousStartAt,MasterStateSketchEnum.Serving)
+        super(guid,startAt,endAt,createdAt,canceledAt,lastModifiedAt,addSubMinutes,previousStartAt,MasterStateSketchEnum.Appointment)
         this.serviceUid = serviceUid;
         this.storeUid = storeUid;
         this.orderUid = orderUid;
@@ -161,6 +161,15 @@ class MasterStateSketchAppointmentModel extends BaseStateSketchModel{
         result.storeUid = this.storeUid;
         result.orderUid = this.orderUid;
         result.serviceDurationMinutes = this.serviceDurationMinutes;
+        // check null value and remove it
+        for(let key in result){
+            if(result[key] == null){
+                delete result[key];
+            }
+        }
+        // console.log("-------------------------------------------------");
+        // console.log(JSON.stringify(result));
+        // console.log("-------------------------------------------------");
         return result;
     }
 

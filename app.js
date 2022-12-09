@@ -1,3 +1,4 @@
+const { logger } = require('./logger/firebase.logger');
 const express = require('express');
 const app = express();
 
@@ -119,13 +120,13 @@ app.put("/service/:guid/:operation",async(req,res)=>{
   // get uid from request header
   let uid = req.headers.uid;
   logger.info(`[api] uid: ${JSON.stringify(req.headers)}`, {structuredData: true});
-  var result;
+  let result;
   if (operation == "AppointmentUpdate"){
     // get appointment from url params
     let appointment = req.headers.appointment;
     // logger.info(`[api] update service appointmentStartAt: ${req.headers.appointment}`, {structuredData: true});
     result = await serviceHandler.updateServiceAppointmentStartAt(guid, uid, new Date(appointment));
-  }else if (operation == "totalMinutes") {
+  } else if (operation == "totalMinutes") {
     result = await serviceHandler.updateServiceTotalMinutes(guid, uid, req.headers.minutes);
   } else if (operation == "jump") {
     result = await serviceHandler.updateServiceCompletedSeconds(guid, uid, req.headers.seconds);
@@ -139,8 +140,7 @@ app.put("/service/:guid/:operation",async(req,res)=>{
       code: 404,
       guid: guid
     });
-  }
-  else{
+  } else {
     // return updated order
     logger.info(`[api] service found`, {structuredData: true});  
     if (result){
@@ -372,16 +372,20 @@ app.post("/serviceevents/:serviceGuid/:stage/:event",async (req,res)=>{
 
 
 const masterStateSketchHandler = require('./handlers/master_state_sketch.handler');
-const {MasterStateSketchServiceModel,MasterStateSketchDisableModel} = require('./models/master_state_sketch.model');
+const {MasterStateSketchServingModel,
+  MasterStateSketchUnavailableModel,
+  MasterStateSketchAppointmentModel,} = require('./models/master_state_sketch.model');
+// const { logger } = require('firebase-tools');
 app.post("/master/sketch/:masterUid/",async (req,res)=>{
   // get params from request
   logger.info(`[api] master state sketch handled`, {structuredData: true});
   let model;
-  if (req.body.type == "Disable"){
-    model = MasterStateSketchDisableModel.fromJson(req.body);
-  }else{
-    model = MasterStateSketchServiceModel.fromJson(req.body);
-
+  if (req.body.type == "Unavailable"){
+    model = MasterStateSketchUnavailableModel.fromJson(req.body);
+  }else if (req.body.type == "Serving"){
+    model = MasterStateSketchServingModel.fromJson(req.body);
+  } else {
+    model =MasterStateSketchAppointmentModel.fromJson(req.body);
   }
 
   
@@ -463,7 +467,6 @@ app.delete("/master/sketch/:masterUid/",async (req,res)=>{
     });
   }
 });
-
 app.get("/master/sketch/:masterUid/",async (req,res)=>{
   // get params from request
 
@@ -481,6 +484,45 @@ app.get("/master/sketch/:masterUid/",async (req,res)=>{
           code: 204,
         });
       }
+    }else{
+      res.send({
+        code: 400,
+        msg: "event not handled."
+      });
+    }
+  }else{
+    res.send({
+      code: 404,
+      msg: "service not found.",
+    });
+  }
+});
+
+
+//////////////////////////////////////////
+/// *************** DEV Only ***************
+/// add master state sketch by service
+//////////////////////////////////////////
+const ServiceModel = require('./models/service.model');
+// const masterStateSketchHandler = require('./handlers/master_state_sketch.handler');
+// const ServiceModel = require('./models/service.model');
+app.post("/dev/master/sketch/",async (req,res)=>{
+  // get params from request
+  logger.info(`[api] master state sketch handled`, {structuredData: true});
+  logger.debug(`[api] ${JSON.stringify(req.body)}`, {structuredData: true});
+  let service = ServiceModel.fromJson(req.body)
+  logger.debug(`[api] ${JSON.stringify(service)}`, {structuredData: true});
+  // res.send({
+  //   code: 200,
+  //   msg: "Successful"
+  // });
+  let result = await masterStateSketchHandler.dev_AddAppointment(service);
+  if (result != null){
+    if (result){
+      res.send({
+        code: 200,
+        data: result.toJson(),
+      });
     }else{
       res.send({
         code: 400,
