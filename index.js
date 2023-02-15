@@ -99,7 +99,8 @@ exports.serviceStateTrigger = firestore
     logger.info(`[trigger] service totalServiceMinutes changed`, {structuredData: true});
     await serviceHandler.whenServiceTotalServiceMinutesChanged(preService, curService);
   }
-  if ((preService.appointmentStartAt.getTime()/1000) != (curService.appointmentStartAt.getTime()/1000)){
+  // if ((preService.appointmentStartAt.getTime()/1000) != (curService.appointmentStartAt.getTime()/1000)){
+  if (preService.appointmentStartAt.getTime() != curService.appointmentStartAt.getTime()){
     logger.info(`[trigger] service appointmentStartAt changed`, {structuredData: true});
     await serviceHandler.whenServiceStartAtChanged(preService, curService);
   }
@@ -126,7 +127,7 @@ exports.serviceStateTrigger = firestore
   if (preServiceStateStr == "Serving" && curService.state.toString() == "Serving"){
     // when service in seving state
     // 'jump forward' or 'jump backward' should has changed with 'completedSeconds' an 'assertCompletedAt' fields at same time
-          // check assertCompletedAt, cause 'completedSeconds' maybe '0' when service is in serving
+    // check assertCompletedAt, cause 'completedSeconds' maybe '0' when service is in serving
     if (preService.assertCompletedAt != curService.assertCompletedAt){
         if (curService.completedSeconds <= 0){
             logger.debug(`[handler] service assertCompletedAt changed and completedSeconds set to 0, service been reset `, {structuredData: true});
@@ -135,11 +136,9 @@ exports.serviceStateTrigger = firestore
             logger.debug(`[handler] service jump time with completedSeconds from ${preService.completedSeconds} to ${curService.completedSeconds}, and assertCompletedAt from ${preService.assertCompletedAt} to ${curService.assertCompletedAt} `, {structuredData: true});
             await serviceHandler.whenServiceJump(preService,curService);
         }
-
     }else{
         logger.warn(`[handler] when service state is Serving, but oldService state is ${preService.state}`, {structuredData: true});
     }
-
   }
     
   if (preServiceStateStr == "Paused" && curService.state.toString() == "Paused"){
@@ -155,7 +154,6 @@ exports.serviceStateTrigger = firestore
           await serviceHandler.whenServiceJump(preService,curService); 
         }
       }
-
   }
   
   
@@ -178,6 +176,68 @@ exports.addServiceEvents = firestore
   await masterLocationReportHandler.onLocationChanged(masterUid, snap.data());
   logger.info(`[trigger] master location report handled`, {structuredData: true});
 });
+
+
+
+/////////////////////////////////
+// master unavailable
+////////////////////////////////
+
+const MasterRestHandler = require('./handlers/master_rest.handler');
+const {Unavailable} = require('./models/unavailable.model');
+exports.masterRestTemporaryAddedTrigger = firestore
+.document('MasterRest/{masterUid}/temporary/{unavailableGuid}')
+.onCreate( async (snap, context) => {
+  logger.info(`[trigger] master rest temporary created`, {structuredData: true});
+  logger.debug(`[trigger] master rest temporary created, data=${JSON.stringify(snap.data())}`, {structuredData: true});
+  let unavailable = Unavailable.fromJson(snap.data());
+  try{
+    await MasterRestHandler.whenUnavailableAdded(unavailable)
+    logger.info("[trigger] master rest temporary created success", {structuredData: true});
+  } catch (err) {
+    logger.warn(`[trigger] master rest temporary created failed, err=${err}`, {structuredData: true});
+  }
+})
+
+exports.masterRestTemporaryUpdatedTrigger = firestore
+.document('MasterRest/{masterUid}/temporary/{unavailableGuid}')
+.onUpdate( async (change, context) => {
+
+  logger.info(`[trigger] service updated`, {structuredData: true});
+
+  let previousData = change.before.data();
+  let currentData = change.after.data();
+
+  logger.debug(`[trigger] ${JSON.stringify(previousData)}`, {structuredData: true});
+  logger.debug(`[trigger] ${JSON.stringify(currentData)}`, {structuredData: true});
+
+  let previous = ServiceModel.fromJson(previousData);
+  let current =  ServiceModel.fromJson(currentData);
+  if (previous.deletedAt == null &&  current.deletedAt != null){
+    logger.debug(`[trigger] service deleted`, {structuredData: true});
+  }
+
+  // await MasterRestHandler.whenUnavailableUpdated(previous, current);
+})
+
+
+const UnavailableEvent = require('./models/unavailable_event.model');
+exports.masterRestTemporaryEventsTrigger = firestore
+.document('MasterRest/{masterUid}/temporary/{unavailableGuid}/events/{eventGuid}')
+.onCreate( async (snap, context) => {
+  let masterUid = context.params.masterUid;
+
+  logger.info(`[trigger] master rest temporary event added`, {structuredData: true});
+  logger.debug(`[trigger] master rest temporary event added, data=${JSON.stringify(snap.data())}`, {structuredData: true});
+  let unavailableEvent = UnavailableEvent.fromJson(snap.data());
+  try{
+    await MasterRestHandler.whenEventAdded(masterUid,unavailableEvent)
+    logger.info("[trigger] master rest temporary event added success", {structuredData: true});
+  } catch (err) {
+    logger.warn(`[trigger] master rest temporary event added failed, err=${err}`, {structuredData: true});
+  }
+})
+
 
 
 

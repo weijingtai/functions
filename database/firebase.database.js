@@ -32,6 +32,10 @@ const ActivatedOrderCollectionGroup = firestore.collectionGroup("activated")
 const ServiceCollection = firestore.collection("Service")
 const AssignCollection = firestore.collection("Assign")
 const UserSearchCollection = firestore.collection("UserSearch")
+
+const MasterRestCollection = firestore.collection("MasterRest")
+
+
 const TestCollection = firestore.collection("test")
 
 module.exports = {
@@ -45,6 +49,7 @@ module.exports = {
     TestCollection,
     ActivatedOrderCollectionGroup,
     AssignCollection,
+    MasterRestCollection,
     
     DeleteValue: FieldValue.delete,
     // DeleteValue: firebaseAdmin.firestore.FieldValue.delete(),

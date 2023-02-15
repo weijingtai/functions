@@ -8,6 +8,7 @@ const {MasterStateSketchUnavailableModel,MasterStateSketchServingModel,MasterSta
 
 const APPOINTMENT_STATE_SKETCH_KEY = 'appointments'
 const SERVING_STATE_SKETCH_KEY = 'serving';
+const UNAVAILABLE_STATE_SKETCHES_KEY = "unavailables"
 const listAll = async function(uid) {
     let stateSketches = await _listAllData(uid);
     let reuslt = [];
@@ -335,7 +336,8 @@ const add = async function(uid, newMasterStateSketch){
     appointments.push(newMasterStateSketch.toJson());
     let updatedFields = {
         // [APPOINTMENT_STATE_SKETCH_KEY] : [newMasterStateSketch.toJson()]
-        [APPOINTMENT_STATE_SKETCH_KEY] : appointments
+        [APPOINTMENT_STATE_SKETCH_KEY] : appointments,
+        lastModifiedAt: new Date().toISOString()
     }
     logger.debug(`[repository] add: add master state sketch by uid: ${uid} guid: ${newMasterStateSketch.guid} updatedFields: ${newMasterStateSketch.toJson()}`);
     await documentReference.update(updatedFields)
@@ -351,7 +353,8 @@ const update = async function(uid,updatedMasterStateSketch){
 
     // remove old master state sketch from stateSketches
     await documentReference.update({
-        [key]: [updatedMasterStateSketch.toJson()]
+        [key]: [updatedMasterStateSketch.toJson()],
+        lastModifiedAt: new Date().toISOString()
     })
 
 
@@ -401,12 +404,113 @@ const remove = async function(uid,guid){
         return null;
     }
 }
+const addUnavailableStateSketch = async function(uid, newUnavailableStateSketch){
+    logger.info(`addUnavailableStateSketch: add unavailable state sketch by uid: ${uid} guid: ${newUnavailableStateSketch.guid}`);
+    logger.debug(`addUnavailableStateSketch: newUnavailableStateSketch: ${JSON.stringify(newUnavailableStateSketch)}`);
+    let docRef = await _getDocumentReference(uid);
+    let docSnap = await docRef.get();
+    // check online master is exists
+    if (!docSnap.exists) {
+        logger.warn(`addUnavailableStateSketch: not found masterUid.`);
+        throw new Error(`addUnavailableStateSketch: not found masterUid: ${uid}`);
+    }
+    // check newUnavailableStateSketch.guid is not exists
+    let unavailableList = docSnap.data()[UNAVAILABLE_STATE_SKETCHES_KEY];
+    if (unavailableList != null && unavailableList.length > 0) {
+        // get all guid in unavailableList
+        for (let unavailable of unavailableList.values()){
+            if (unavailable.guid == newUnavailableStateSketch.guid){
+                logger.warn(`addUnavailableStateSketch: guid is exists.`);
+                throw new Error(`addUnavailableStateSketch: guid is exists: ${newUnavailableStateSketch.guid}`);
+            }
+        }
+    }else{
+        unavailableList = [];
+    }
+    unavailableList.push(newUnavailableStateSketch.toJson());
+    let updatedFields = {
+        [UNAVAILABLE_STATE_SKETCHES_KEY] : unavailableList,
+        lastModifiedAt: new Date().toISOString()
+    }
+    logger.debug(`addUnavailableStateSketch: add unavailable state sketch by uid: ${uid} guid: ${newUnavailableStateSketch.guid} updatedFields: ${newUnavailableStateSketch.toJson()}`);
+    await docRef.update(updatedFields)
+    logger.info(`addUnavailableStateSketch: add unavailable state sketch by uid: ${uid} guid: ${newUnavailableStateSketch.guid} success.`);
+    return newUnavailableStateSketch;
+    
+}
+const getUnavailableStateSketch = async function(uid,guid){
+    logger.info(`getUnavailableStateSketch: get unavailable state sketch by uid: ${uid} guid: ${guid}`);
+    let docRef = await _getDocumentReference(uid);
+    let docSnap = await docRef.get();
+    // check online master is exists
+    if (!docSnap.exists) {
+        logger.warn(`getUnavailableStateSketch: not found masterUid.`);
+        throw new Error(`getUnavailableStateSketch: not found masterUid: ${uid}`);
+    }
+    // check newUnavailableStateSketch.guid is not exists
+    let unavailableList = docSnap.data()[UNAVAILABLE_STATE_SKETCHES_KEY];
+    if (unavailableList != null && unavailableList.length > 0) {
+        // get all guid in unavailableList
+        for (let unavailable of unavailableList.values()){
+            if (unavailable.guid == guid){
+                logger.info(`getUnavailableStateSketch: get unavailable state sketch by uid: ${uid} guid: ${guid} success.`);
+                return MasterStateSketchUnavailableModel.fromJson(unavailable);
+            }
+        }
+    }
+    logger.warn(`getUnavailableStateSketch: not found unavailable state sketch by uid: ${uid} guid: ${guid}`);
+    return null;
+}
+const updateUnavailableStateSketch = async function(uid,newStateSketch){
+    let guid = newStateSketch.guid;
+    logger.info(`[repository] updateUnavailableStateSketch: update unavailable state sketch by uid: ${uid} guid: ${guid}`);
+    let docRef = await _getDocumentReference(uid);
+    let docSnap = await docRef.get();
+    // check online master is exists
+    if (!docSnap.exists) {
+        logger.warn(`[repository] updateUnavailableStateSketch: not found masterUid.`);
+        throw new Error(`[repository] updateUnavailableStateSketch: not found masterUid: ${uid}`);
+    }
+    // check newUnavailableStateSketch.guid is not exists
+    let unavailableList = docSnap.data()[UNAVAILABLE_STATE_SKETCHES_KEY];
+    if (unavailableList == null || unavailableList.length == 0) {
+        logger.warn(`[repository] updateUnavailableStateSketch: not found unavailable state sketch by uid: ${uid} guid: ${guid}`);
+        throw new Error(`updateUnavailableStateSketch: not found unavailable state sketch by uid: ${uid} guid: ${guid}`);
+    }
+    // check docSnap's lastModifiedAt is before newStateSketch.lastModifiedAt
+    let docLastModifiedAt = docSnap.data().lastModifiedAt;
+    if (docLastModifiedAt && docLastModifiedAt > newStateSketch.lastModifiedAt){
+        logger.warn(`[repository] updateUnavailableStateSketch: docSnap's lastModifiedAt is before newStateSketch.lastModifiedAt`);
+        throw new Error(`updateUnavailableStateSketch: docSnap's lastModifiedAt is before newStateSketch.lastModifiedAt`);
+    }
+    let newUnavailables = []
+    for (let unavailable of unavailableList.values()){
+        if (unavailable.guid == guid){
+            logger.debug(newStateSketch.toJson())
+            newUnavailables.push(newStateSketch.toJson());
+        }else{
+            logger.debug(unavailable)
+            newUnavailables.push(unavailable);
+        }
+    }
+    let updatedFields = {
+        [UNAVAILABLE_STATE_SKETCHES_KEY] : newUnavailables,
+        lastModifiedAt: new Date().toISOString()
+    }
+    logger.debug(`[repository] updateUnavailableStateSketch: update unavailable state sketch by uid: ${uid} guid: ${guid} updatedFields: ${JSON.stringify(updatedFields)}`);
+    await docRef.update(updatedFields)
+    logger.info(`[repository] updateUnavailableStateSketch: update unavailable state sketch by uid: ${uid} guid: ${guid} success.`);
+    return newStateSketch
+
+
+}
 async function _getDocumentReference(uid){
     return await OnlineMastersCollection.doc(uid);
 }
 async function _getByUid(uid){
     return await OnlineMastersCollection.doc(uid).get();
 }
+
 
 module.exports = {
     listAll,
@@ -423,4 +527,8 @@ module.exports = {
     getServing,
     setupServing,
     updateServing,
+
+    addUnavailableStateSketch,
+    getUnavailableStateSketch,
+    updateUnavailableStateSketch
 }

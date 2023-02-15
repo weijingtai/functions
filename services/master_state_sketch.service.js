@@ -586,7 +586,7 @@ const updateDisableStateSketchEndAt = async function(uid,guid, updatedEndAt){
 
 }
 /**
- * 
+ * @deprecated
  * @param {*} uid 
  * @param {*} guid 
  * @returns 
@@ -621,6 +621,115 @@ const remove = async function(uid,guid,){
     return await MasterStateSketchRepository.remove(uid,guid);
 }
 
+const addUnavailableStateSketch = async function(unavailable){
+    logger.info(`[service] addUnavailableStateSketch=${unavailable.guid} uid=${unavailable.uid}`);
+    logger.debug(`[service] addUnavailableStateSketch=${JSON.stringify(unavailable)}`);
+    logger.debug(`[service] addUnavailableStateSketch=${JSON.stringify(unavailable.toJson())}`);
+
+    // generate unavaiable state sketch from unavailable model
+    // guid,startAt,previousStartAt,endAt,createdAt,canceledAt,lastModifiedAt,addSubMinutes,
+    let sketch = new MasterStateSketchUnavailableModel(unavailable.guid,unavailable.startAt,null,unavailable.endAt,unavailable.createdAt,null,null,null);
+    logger.debug(`[service] addUnavailableStateSketch=${JSON.stringify(sketch.toJson())}`);
+    let result = await MasterStateSketchRepository.addUnavailableStateSketch(unavailable.uid,sketch);
+    // logger.debug(`[service] addUnavailableStateSketch=${result}`);
+    logger.info(`[service] addUnavailableStateSketch finished.`);
+}
+const cacnelUnavailable = async function(uid,guid,canceledAt){
+
+    logger.info(`[service] cacnelUnavailableStateSketch=${guid} uid=${uid}`);
+    // get unavailable from firestore
+    let oldStateSketch = await MasterStateSketchRepository.getUnavailableStateSketch(uid,guid)
+    if (oldStateSketch == null) {
+        logger.warn(`[service] cacnelUnavailableStateSketch: ${guid} is not found`);
+        throw new Error(`[service] cacnelUnavailableStateSketch: ${guid} is not found`);
+    }
+    logger.debug(`[service] cacnelUnavailableStateSketch: ${JSON.stringify(oldStateSketch.toJson())}`);
+    // check stateSketch is  or canceled
+    if (oldStateSketch.canceledAt != null) {
+        logger.info(`[service] cacnelUnavailableStateSketch: ${guid} is already canceled`);
+        return;
+    }
+    oldStateSketch.canceledAt = canceledAt;
+    oldStateSketch.lastModifiedAt = canceledAt;
+    logger.debug(`[service] cacnelUnavailableStateSketch: ${JSON.stringify(oldStateSketch.toJson())}`);
+    // cancel this stateSketch
+    let result = await MasterStateSketchRepository.updateUnavailableStateSketch(uid,oldStateSketch);
+    if (result == null) {
+        logger.info(`[service] cacnelUnavailableStateSketch: ${guid} cannot be canceled`);
+        return null;
+    }
+    logger.info(`[service] cacnelUnavailableStateSketch finished.`);
+    return result;
+}
+
+const updateUnavailableStartAt = async function(uid,guid,updatedStartAt,updateAt){
+    logger.info(`[service] cacnelUnavailableStateSketch=${guid} uid=${uid}`);
+    // get unavailable from firestore
+    let oldStateSketch = await MasterStateSketchRepository.getUnavailableStateSketch(uid,guid)
+    if (oldStateSketch == null) {
+        logger.warn(`[service] updateUnavailableStartAt: ${guid} is not found`);
+        throw new Error(`[service] updateUnavailableStartAt: ${guid} is not found`);
+    }
+    logger.debug(`[service] updateUnavailableStartAt: ${JSON.stringify(oldStateSketch.toJson())}`);
+    // check stateSketch is  or canceled
+    if (oldStateSketch.canceledAt != null) {
+        logger.info(`[service] updateUnavailableStartAt: ${guid} is already canceled`);
+        return;
+    }
+    oldStateSketch.previousStartAt = oldStateSketch.startAt
+    oldStateSketch.startAt = updatedStartAt;
+    oldStateSketch.lastModifiedAt = updateAt;
+    logger.debug(`[service] updateUnavailableStartAt: ${JSON.stringify(oldStateSketch.toJson())}`);
+    // cancel this stateSketch
+    let result = await MasterStateSketchRepository.updateUnavailableStateSketch(uid,oldStateSketch);
+    if (result == null) {
+        logger.info(`[service] updateUnavailableStartAt: ${guid} cannot be canceled`);
+        return null;
+    }
+    logger.info(`[service] updateUnavailableStartAt finished.`);
+    return result;
+
+}
+
+const updateUnavailableEndAt = async function(uid,guid,endAt,updateAt){
+    logger.info(`[service] updateUnavailableEndAt=${guid} uid=${uid}`);
+    // get unavailable from firestore
+    let oldStateSketch = await MasterStateSketchRepository.getUnavailableStateSketch(uid,guid)
+    if (oldStateSketch == null) {
+        logger.warn(`[service] updateUnavailableEndAt: ${guid} is not found`);
+        throw new Error(`[service] updateUnavailableEndAt: ${guid} is not found`);
+    }
+    logger.debug(`[service] updateUnavailableEndAt: ${JSON.stringify(oldStateSketch.toJson())}`);
+    // check stateSketch is  or canceled
+    if (oldStateSketch.canceledAt != null) {
+        logger.info(`[service] updateUnavailableEndAt: ${guid} is already canceled`);
+        return;
+    }
+    let previousEndAt = oldStateSketch.endAt;
+    let previousAddSubMinutes = oldStateSketch.addSubMinutes
+    if (previousAddSubMinutes == null){
+        previousAddSubMinutes = []
+    }
+    let changedMinutes = Math.floor((endAt.getTime() - previousEndAt.getTime()) / 60000)
+
+    // calculate addSubMinutes
+    logger.debug(`[service] updateUnavailableEndAt: update endAt from ${previousEndAt} to ${endAt} changed ${changedMinutes}`,{structuredData:true})
+    previousAddSubMinutes.push(changedMinutes)
+    oldStateSketch.endAt = endAt;
+    oldStateSketch.addSubMinutes = previousAddSubMinutes
+    oldStateSketch.lastModifiedAt = updateAt;
+    logger.debug(`[service] updateUnavailableEndAt: ${JSON.stringify(oldStateSketch.toJson())}`);
+    // cancel this stateSketch
+    let result = await MasterStateSketchRepository.updateUnavailableStateSketch(uid,oldStateSketch);
+    if (result == null) {
+        logger.info(`[service] updateUnavailableEndAt: ${guid} cannot be canceled`);
+        return null;
+    }
+    logger.info(`[service] updateUnavailableEndAt finished.`);
+    return result;
+
+}
+
 module.exports = {
     listAll,
     length,
@@ -642,5 +751,10 @@ module.exports = {
     cancelServing,
     extraCompletedServingServiceDuration,
     resetServing,
-    jumpServing
+    jumpServing,
+
+    addUnavailableStateSketch,
+    cacnelUnavailable,
+    updateUnavailableStartAt,
+    updateUnavailableEndAt
 }
